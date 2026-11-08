@@ -87,48 +87,72 @@ async function batched(ids, build, onRow, size = 300) {
     await sleep(1000);
   }
 }
-// ---------- 3. Capacités OpenStreetMap (tout objet sportif relié à Wikidata) ----------
+// ---------- 3. OpenStreetMap : tous les lieux sportifs avec capacité ----------
 let osmFilled = 0;
-const osmCap = new Map(), osmSport = new Map();
-try {
-  const osm = await http("https://overpass-api.de/api/interpreter", {
-    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ data: `[out:json][timeout:300];area["ISO3166-1"="FR"][admin_level=2]->.fr;
-(nwr(area.fr)["leisure"~"^(stadium|sports_centre|sports_hall|track|ice_rink|pitch|horse_riding)$"]["wikidata"];
- nwr(area.fr)["sport"]["wikidata"]["capacity"];);out tags;` }),
-  });
-  for (const el of osm.elements || []) {
-    const w = el.tags.wikidata;
-    const cap = parseInt(String(el.tags.capacity || "").replace(/[\s.,]/g, ""), 10);
-    if (cap > 0) osmCap.set(w, Math.max(cap, osmCap.get(w) || 0));
-    if (el.tags.sport) osmSport.set(w, el.tags.sport);
+const osmLinked = new Map(); // Q-id -> {cap, sport}
+const osmOnly = [];          // lieux sans fiche Wikidata
+const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+const osmQuery = `[out:json][timeout:240];area["ISO3166-1"="FR"][admin_level=2]->.fr;
+nwr(area.fr)["capacity"]["leisure"~"^(stadium|sports_centre|sports_hall|track|ice_rink|pitch)$"];out tags;`;
+let osm = null;
+for (const ep of OVERPASS) {
+  try { osm = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }) }, 2); log(`OpenStreetMap (${new URL(ep).host}) : ${osm.elements.length} lieux sportifs avec capacité`); break; }
+  catch (e) { log(`⚠️ Overpass ${new URL(ep).host} : ${e.message}`); }
+}
+if (osm) {
+  const LEISURE_RANK = { stadium: 0, sports_centre: 1, sports_hall: 2, ice_rink: 3, track: 4, pitch: 5 };
+  const seen = new Map();
+  for (const el of osm.elements) {
+    const t = el.tags;
+    const cap = parseInt(String(t.capacity || "").replace(/[\s.,]/g, ""), 10);
+    if (!(cap > 0) || cap > 120000) continue;
+    if (/^Q\d+$/.test(t.wikidata || "")) {
+      const prev = osmLinked.get(t.wikidata);
+      if (!prev || cap > prev.cap) osmLinked.set(t.wikidata, { cap, sport: t.sport });
+      continue;
+    }
+    const name = (t.name || "").trim();
+    if (!name || cap < 500) continue; // sans nom ou trop petit : pas une carte intéressante
+    const city = t["addr:city"] || t["is_in:city"] || null;
+    const key = name.toLowerCase() + "|" + (city || "").toLowerCase();
+    const cand = { id: `osm${el.type[0]}${el.id}`, name, city, cap, sport: t.sport, rank: LEISURE_RANK[t.leisure] ?? 9 };
+    const prev = seen.get(key);
+    if (!prev || cand.rank < prev.rank || (cand.rank === prev.rank && cap > prev.cap)) seen.set(key, cand);
   }
-  log(`OpenStreetMap : ${(osm.elements || []).length} objets sportifs reliés à Wikidata, ${osmCap.size} avec capacité`);
-  // Lieux sportifs connus d'OSM (avec capacité) mais pas encore dans notre liste
-  const unknown = [...osmCap.keys()].filter(w => /^Q\d+$/.test(w) && !items.has(w));
+  osmOnly.push(...seen.values());
+  // Lieux reliés à Wikidata mais absents de notre liste : on récupère leur fiche
+  const unknown = [...osmLinked.keys()].filter(w => !items.has(w));
   const before = items.size;
   for (let i = 0; i < unknown.length; i += 200) {
     const v = unknown.slice(i, i + 200).map(x => "wd:" + x).join(" ");
-    try { addRows(await sparql(baseQuery(`VALUES ?s { ${v} } ?s wdt:P31 ?c2 . ?c2 wdt:P279* wd:${VENUE} .`))); }
+    try { addRows(await sparql(baseQuery(`VALUES ?s { ${v} }`))); }
     catch (e) { log(`  ⚠️ lot OSM ${i / 200 + 1} : ${e.message}`); }
     await sleep(1000);
   }
-  log(`OpenStreetMap : +${items.size - before} lieux sportifs ajoutés`);
   for (const it of items.values()) {
-    if (!it.caps.length && osmCap.get(it.id)) { it.caps.push(osmCap.get(it.id)); it.osm = true; osmFilled++; }
-    if (osmSport.get(it.id)) osmSport.get(it.id).split(";").forEach(x => it.sports.add("osm:" + x.trim()));
+    const o = osmLinked.get(it.id); if (!o) continue;
+    if (!it.caps.length) { it.caps.push(o.cap); it.osm = true; osmFilled++; }
+    if (o.sport) o.sport.split(";").forEach(x => it.sports.add("osm:" + x.trim()));
   }
-  log(`OpenStreetMap : ${osmFilled} capacités ajoutées`);
-} catch (e) { log(`⚠️ OpenStreetMap indisponible : ${e.message}`); }
+  log(`OpenStreetMap : ${osmLinked.size} reliés à Wikidata (+${items.size - before} lieux, ${osmFilled} capacités ajoutées), ${osmOnly.length} lieux sans fiche Wikidata`);
+}
+
+// Lieux qui ne sont pas des lieux sportifs (classes Wikidata parasites)
+const NOT_SPORT = /refuge|théâtre|cinéma|serre|marché|archéolog|concert|église|musée|château|hôtel|gare|école|université|parc d'attractions/i;
+const SPORT_CLASS = /stade|sport|aréna|arena|gymnase|patinoire|vélodrome|hippodrome|circuit|court|piscine|aquatique|terrain|salle multisport|palais des sports/i;
+for (const [id, it] of items) {
+  const cl = [...it.classes];
+  if (cl.some(c => NOT_SPORT.test(c)) && !cl.some(c => SPORT_CLASS.test(c))) items.delete(id);
+}
 
 // ---------- 3b. Ville, région, sport, club ----------
-const ids = [...items.keys()].filter(id => items.get(id).caps.length);
+const ids = [...items.keys()].filter(id => /^Q\d+$/.test(id) && items.get(id).caps.length);
 await batched(ids, v => `SELECT ?s ?cityLabel WHERE { VALUES ?s { ${v} } ?s wdt:P131 ?city .
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". } }`,
   b => { const it = items.get(qid(val(b, "s"))); if (it && !it.city) it.city = val(b, "cityLabel"); });
 await batched(ids, v => `SELECT ?s ?regionLabel WHERE { VALUES ?s { ${v} } ?s wdt:P131+ ?region . ?region wdt:P31 wd:Q36784 . FILTER NOT EXISTS { ?region wdt:P576 [] }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr". } }`,
-  b => { const it = items.get(qid(val(b, "s"))); if (it && !it.region) it.region = val(b, "regionLabel"); }, 150);
+  b => { const it = items.get(qid(val(b, "s"))); if (it && !it.region) it.region = val(b, "regionLabel"); }, 40);
 await batched(ids, v => `SELECT ?s ?sportLabel ?clubLabel ?clubSportLabel WHERE { VALUES ?s { ${v} }
   { ?s wdt:P641 ?sport } UNION { ?s wdt:P466 ?club . OPTIONAL { ?club wdt:P641 ?clubSport } }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". } }`,
@@ -146,8 +170,9 @@ const SPORT_RULES = [
   ["rugby", /rugby/],
   ["tennis", /tennis/],
   ["basket", /basket/],
+  ["multisport", /osm:multi/],
   ["handball", /handball/],
-  ["hockey", /hockey/],
+  ["hockey", /hockey|osm:ice_skating/],
   ["athletisme", /athlétisme|athletics/],
   ["cyclisme", /cyclisme|vélo|cycling/],
   ["auto", /automobile|motocyclisme|sport mécanique|motorsport|motor/],
@@ -166,6 +191,13 @@ function sportOf(it) {
   if (n.includes("patinoire")) return "hockey";
   if (n.includes("piscine") || n.includes("centre aquatique")) return "natation";
   return "autre";
+}
+// Lieux OpenStreetMap sans fiche Wikidata (doublons de nom écartés)
+const known = new Set([...items.values()].map(it => (it.name || "").toLowerCase()));
+for (const o of osmOnly) {
+  if (known.has(o.name.toLowerCase())) continue;
+  items.set(o.id, { id: o.id, name: o.name, city: o.city, caps: [o.cap], years: [], openYears: [], img: null, links: 0,
+    sports: new Set(o.sport ? o.sport.split(";").map(x => "osm:" + x.trim()) : []), clubs: new Set(), classes: new Set(["OSM"]), osm: true, osmOnly: true });
 }
 const all = [...items.values()];
 const eligible = all.filter(it => it.caps.length && it.name && !/^Q\d+$/.test(it.name));
@@ -223,14 +255,15 @@ const cards = chosen.map(it => ({
   id: it.id.toLowerCase(), name: it.name.charAt(0).toUpperCase() + it.name.slice(1), city: it.city || "France", region: it.region || null,
   flag: "🇫🇷", sport: sportOf(it), year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
   club: [...it.clubs].slice(0, 2).join(", ") || undefined,
-  img: it.photo || undefined, wikidata: it.id,
+  img: it.photo || undefined, wikidata: it.osmOnly ? undefined : it.id,
+  osm: it.osmOnly ? it.id.replace(/^osm(\w)(\d+)$/, (_, t, n) => `${{ n: "node", w: "way", r: "relation" }[t]}/${n}`) : undefined,
 }));
 const count = k => Object.entries(cards.reduce((m, c) => ((m[c[k] || "?"] = (m[c[k] || "?"] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1]).map(([a, b]) => `${a} ${b}`).join(", ");
 log(`Raretés : ${count("rarity")}`);
 log(`Sports : ${count("sport")}`);
 log(`Régions : ${count("region")}`);
 log(`Types de lieux : ${Object.entries(chosen.reduce((m, it) => { [...it.classes].slice(0, 1).forEach(k => (m[k] = (m[k] || 0) + 1)); return m; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([a, b]) => `${a} ${b}`).join(", ")}`);
-log(`Sans année : ${cards.filter(c => !c.year).length} · Capacité via OSM : ${chosen.filter(c => c.osm).length}`);
+log(`Sans année : ${cards.filter(c => !c.year).length} · Capacité via OSM : ${chosen.filter(c => c.osm).length} · Lieux uniquement OSM : ${chosen.filter(c => c.osmOnly).length}`);
 log(`Top 15 : ${cards.slice(0, 15).map(c => `${c.name} (${c.capacity})`).join(" · ")}`);
 
 const header = `/* FICHIER GÉNÉRÉ par scripts/build-cards.mjs — ne pas modifier à la main.

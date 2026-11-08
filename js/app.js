@@ -160,6 +160,7 @@
       <p class="muted">${sport.icon} ${sport.label} · ${c.city}${c.region ? " (" + c.region + ")" : ""}<br>${c.year ? "Ouvert en " + c.year + " · " : ""}${fmt(c.capacity)} places</p>
       ${c.club ? `<p>Club résident : <b>${esc(c.club)}</b></p>` : ""}
       ${c.wikidata ? `<p class="credit"><a href="https://www.wikidata.org/wiki/${c.wikidata}" target="_blank" rel="noopener">Fiche Wikidata</a></p>` : ""}
+      ${c.osm ? `<p class="credit"><a href="https://www.openstreetmap.org/${c.osm}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a> · © contributeurs OpenStreetMap</p>` : ""}
       ${c.fact ? `<p>${c.fact}</p>` : ""}
       ${(img => img ? `<p class="credit">Photo : <a href="${esc(img.page)}" target="_blank" rel="noopener">${esc(img.artist)}</a> · ${esc(img.license)} · Wikimedia Commons</p>` : "")(CardImages.get(c.id))}
       <p class="muted">Exemplaires : ${state.owned[c.id]}</p>

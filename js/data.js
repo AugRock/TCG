@@ -43,6 +43,7 @@ const THEME = {
     hippique:  { label: "Hippisme",            icon: "🏇" },
     natation:  { label: "Natation",            icon: "🏊" },
     golf:      { label: "Golf",                icon: "⛳" },
+    multisport:{ label: "Multisport",          icon: "🏟️" },
     autre:     { label: "Autres sports",       icon: "🏟️" },
   },
 
