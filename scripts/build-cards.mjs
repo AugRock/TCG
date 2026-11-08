@@ -269,7 +269,14 @@ const SPORT_RULES = [
   ["natation", /natation|swimming|piscine|bassin|osm:swimming/],
   ["golf", /golf/],
 ];
+const NAME_RULES = [
+  ["hippique", /hippodrome|champ de courses/], ["hockey", /patinoire|ice ?arena|rinkla|rïnkla/], ["cyclisme", /^vélodrome (?!stade)|vélodrome de|vélodrome jacques/],
+  ["arenes", /^arènes|arènes (de|d'|du)/], ["auto", /circuit|autodrome|speedway/], ["natation", /piscine|centre aquatique|stade nautique/],
+  ["tennis", /tennis|roland-garros|court /], ["multisport", /palais des sports|palais omnisports|complexe sportif|salle omnisports|halle des sports|gymnase/],
+];
 function sportOf(it) {
+  const n0 = (it.name || "").toLowerCase();
+  for (const [k, re] of NAME_RULES) if (re.test(n0)) return k;
   const all = [...it.sports].join("|");
   for (const [k, re] of SPORT_RULES) if (re.test(all)) return k;
   const n = (it.name || "").toLowerCase();
@@ -292,7 +299,8 @@ const SMALL = new Set(["de", "du", "des", "la", "le", "les", "et", "à", "au", "
 function tidyName(n) {
   n = String(n || "").replace(/\s+/g, " ").trim();
   const letters = n.replace(/[^\p{L}]/gu, ""), upper = letters.replace(/[^\p{Lu}]/gu, "");
-  if (!letters.length || upper.length / letters.length < 0.7) return n; // déjà en casse normale
+  if (!letters.length || upper.length / letters.length < 0.7) // casse mixte : on corrige seulement les mots longs en MAJUSCULES
+    return n.replace(/(?<!\()\b(\p{Lu}{5,})\b/gu, w => w.charAt(0) + w.slice(1).toLowerCase());
   return n.toLowerCase().replace(/[\p{L}]+(['’-]?)/gu, (w, _p, off) => {
     const base = w.replace(/['’-]$/, "");
     if (off > 0 && SMALL.has(base)) return w;
@@ -353,6 +361,8 @@ const photos = chosen.filter(it => it.photo).length;
 log(`Photos : ${photos} / ${chosen.length}`);
 
 // ---------- 6. Écriture ----------
+const nameCount = chosen.reduce((m, it) => ((m[it.name.toLowerCase()] = (m[it.name.toLowerCase()] || 0) + 1), m), {});
+for (const it of chosen) if (nameCount[it.name.toLowerCase()] > 1 && it.city) it.name = `${it.name} (${it.city})`;
 const cards = chosen.map(it => ({
   id: it.id.toLowerCase(), name: it.name.charAt(0).toUpperCase() + it.name.slice(1), city: it.city || "France", region: it.region || null,
   flag: "🇫🇷", sport: sportOf(it), year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
