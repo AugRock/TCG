@@ -1,13 +1,13 @@
 Wikidata : 664 stades en France (non démolis)
 Wikidata : +180 autres lieux sportifs avec capacité (salles, arènes, circuits…)
-⚠️ OpenStreetMap indisponible : fetch failed
-  ⚠️ lot 1 ignoré : terminated
-Avec une capacité connue : 478 (sans capacité, écartés : 366)
-Sélection : 478 cartes (objectif 1000)
-Photos : 325 / 478
-Raretés : commune 382, rare 72, epique 19, legendaire 5
-Sports : football 177, rugby 90, autre 70, hockey 49, basket 29, athletisme 17, tennis 13, handball 13, cyclisme 7, us 5, hippique 4, auto 1, golf 1, natation 1, baseball 1
-Régions : ? 173, Île-de-France 46, Auvergne-Rhône-Alpes 45, Hauts-de-France 28, Nouvelle-Aquitaine 25, Provence-Alpes-Côte d'Azur 25, Grand Est 22, Occitanie 22, Bourgogne-Franche-Comté 19, Bretagne 17, Pays de la Loire 14, Normandie 11, Centre-Val de Loire 10, Guyane 5, Mayotte 4, Martinique 4, Corse 3, Guadeloupe 3, La Réunion 2
-Types de lieux : stade 187, installation sportive 173, stade de football 15, gymnase 15, aréna 14, salle de spectacles polyvalente 10, stade multifonction 9, vélodrome 7, stade de rugby à XV 6, refuge de montagne 6, hippodrome 4, court de tennis 3, patinoire couverte 3, salle multisport 3, patinoire 3, théâtre 3, salle de cinéma 3, aréna intérieur 2, bâtiment de salle de concert 2, site archéologique 1, serre 1, marché 1, stade de rugby à XIII 1, circuit de rallycross 1, centre aquatique 1
-Sans année : 86 · Capacité via OSM : 0
+OpenStreetMap (overpass-api.de) : 0 lieux sportifs avec capacité
+OpenStreetMap : 0 reliés à Wikidata (+0 lieux, 0 capacités ajoutées), 0 lieux sans fiche Wikidata
+Avec une capacité connue : 473 (sans capacité, écartés : 365)
+Sélection : 473 cartes (objectif 1000)
+Photos : 323 / 473
+Raretés : commune 378, rare 71, epique 19, legendaire 5
+Sports : football 177, rugby 90, autre 65, hockey 49, basket 29, athletisme 17, tennis 13, handball 13, cyclisme 7, us 5, hippique 4, auto 1, golf 1, natation 1, baseball 1
+Régions : Auvergne-Rhône-Alpes 61, Île-de-France 54, Occitanie 47, Nouvelle-Aquitaine 41, Provence-Alpes-Côte d'Azur 39, Hauts-de-France 34, Grand Est 32, ? 25, Normandie 22, Bourgogne-Franche-Comté 22, Bretagne 21, Pays de la Loire 20, Centre-Val de Loire 15, La Réunion 13, Martinique 6, Mayotte 6, Corse 5, Guyane 5, Guadeloupe 5
+Types de lieux : stade 192, installation sportive 169, stade de football 15, gymnase 15, aréna 14, stade multifonction 9, salle de spectacles polyvalente 9, vélodrome 7, stade de rugby à XV 6, refuge de montagne 6, hippodrome 4, court de tennis 3, patinoire couverte 3, salle multisport 3, patinoire 3, aréna intérieur 2, bâtiment de salle de concert 2, site archéologique 1, serre 1, marché 1, circuit de rallycross 1, centre aquatique 1, salle de sport 1, théâtre 1, auditorium 1
+Sans année : 83 · Capacité via OSM : 0 · Lieux uniquement OSM : 0
 Top 15 : Stade de France (81338) · Parc des Princes (47930) · Stade Vélodrome (67394) · Parc Olympique lyonnais (59286) · Stade Geoffroy-Guichard (41965) · Stade Pierre-Mauroy (50000) · Stade Atlantique (42566) · Stade Bollaert-Delelis (38223) · Allianz Riviera (36178) · Stadium municipal de Toulouse (33150) · Stade départemental Yves-du-Manoir (14000) · Stade de la Beaujoire (35318) · Stade de Gerland (35029) · Stade de la Mosson (32900) · Stade Chaban-Delmas (33290)
