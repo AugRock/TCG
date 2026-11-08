@@ -14,8 +14,9 @@ const THEME = {
   name: "Tribunes",
   tagline: "Collectionne les stades les plus mythiques du monde",
   currentYear: 2026,
-  // Raretés affichées en « full art » (photo sur toute la carte + effet holo)
-  fullArtRarities: ["epique", "legendaire"],
+  // Toutes les cartes avec photo sont en plein cadre. Effet de reflet par rareté :
+  // "sheen" = reflet argenté, "holo" = holographique arc-en-ciel.
+  foil: { rare: "sheen", epique: "holo", legendaire: "holo" },
 
   rarities: {
     commune:    { label: "Commune",    weight: 62, color: "#8a94a6", sellValue: 5 },
@@ -39,9 +40,9 @@ const THEME = {
 
   // Statistiques utilisées en duel (la plus haute gagne)
   stats: [
-    { key: "capacity", label: "Capacité",   unit: "places", get: c => c.capacity },
-    { key: "age",      label: "Ancienneté", unit: "ans",    get: c => THEME.currentYear - c.year },
-    { key: "prestige", label: "Prestige",   unit: "/100",   get: c => c.prestige },
+    { key: "capacity", label: "Capacité",   icon: "👥", unit: "places", get: c => c.capacity },
+    { key: "age",      label: "Ancienneté", icon: "⏳", unit: "ans",    get: c => THEME.currentYear - c.year },
+    { key: "prestige", label: "Prestige",   icon: "⭐", unit: "/100",   get: c => c.prestige },
   ],
 
   cards: [

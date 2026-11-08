@@ -44,3 +44,9 @@ Sans connexion, les cartes s'affichent avec une icône à la place de la photo.
 - Comptes en ligne + sauvegarde serveur (Supabase / Firebase)
 - Données générées automatiquement depuis Wikipedia/Wikidata (rareté = popularité de la page, comme WikiMasters)
 - Échanges entre joueurs, classement, quêtes quotidiennes, sets saisonniers
+
+## Mode démo (pour tester)
+Ajoute `?demo=1` à l'adresse (ex. `https://augrock.github.io/TCG/?demo=1`), ou tape 5 fois rapidement sur le logo.
+- Paquets gratuits et illimités, minuteur désactivé
+- Forcer la rareté des cartes tirées, débloquer toute la collection, ajouter des pièces, réinitialiser
+- Progression séparée de la vraie partie ; `?demo=0` ou « Quitter le mode démo » pour en sortir

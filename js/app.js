@@ -1,6 +1,14 @@
 /* Moteur du jeu — indépendant du thème (voir data.js). */
 (() => {
-  const SAVE_KEY = "tcg-save-v1";
+  // Mode démo : ?demo=1 dans l'URL, ou 5 tapes rapides sur le logo. Sauvegarde séparée.
+  const params = new URLSearchParams(location.search);
+  try {
+    if (params.get("demo") === "1") localStorage.setItem("tcg-demo", "1");
+    if (params.get("demo") === "0") localStorage.removeItem("tcg-demo");
+  } catch {}
+  const DEMO = (() => { try { return localStorage.getItem("tcg-demo") === "1"; } catch { return params.get("demo") === "1"; } })();
+  const SAVE_KEY = DEMO ? "tcg-save-demo" : "tcg-save-v1";
+  let forcedRarity = ""; // démo : forcer la rareté de toutes les cartes
   const FREE_PACK_COOLDOWN = 4 * 60 * 60 * 1000;
   const PACK_SIZE = 5;
   const RARITY_ORDER = ["commune", "rare", "epique", "legendaire"];
@@ -40,7 +48,7 @@
     return pool[0];
   }
   function rollCard(min) {
-    const r = rollRarity(min);
+    const r = forcedRarity || rollRarity(min);
     const pool = THEME.cards.filter(c => c.rarity === r);
     return pool[Math.floor(Math.random() * pool.length)];
   }
@@ -51,14 +59,15 @@
   function cardHTML(c, { count = 0, missing = false, isNew = false } = {}) {
     const sport = THEME.sports[c.sport] || THEME.sports.autre;
     const img = !missing && CardImages.get(c.id);
-    const full = !missing && img && THEME.fullArtRarities.includes(c.rarity);
+    const full = !missing && img;
+    const foil = full && THEME.foil[c.rarity];
     const cls = ["card", "r-" + c.rarity, missing && "missing", isNew && "new", full && "full", img && "has-img"].filter(Boolean).join(" ");
     if (missing) {
       return `<div class="${cls}" data-id="${c.id}"><div class="c-top"><span>${THEME.rarities[c.rarity].label}</span><span>${sport.icon}</span></div>
         <div class="c-art">❔</div><div class="c-name">???</div><div class="c-city">${sport.label}</div></div>`;
     }
     const style = img ? ` style="--img:url(&quot;${esc(img.url)}&quot;)"` : "";
-    const stats = THEME.stats.map(st => `<div data-stat="${st.key}"><b>${fmt(st.get(c))}</b>${st.label}</div>`).join("");
+    const stats = THEME.stats.map(st => `<div data-stat="${st.key}" title="${st.label}"><b>${fmt(st.get(c))}</b>${st.icon} <span class="lbl">${st.label}</span></div>`).join("");
     const art = full ? `<div class="c-spacer"></div>`
       : `<div class="c-art">${img ? "" : sport.icon}<span class="flag">${c.flag}</span>${img ? `<span class="sport-chip">${sport.icon}</span>` : ""}</div>`;
     return `<div class="${cls}" data-id="${c.id}"${style}>
@@ -70,18 +79,19 @@
         <div class="c-city">${c.city} · ${c.year}</div>
         <div class="c-stats">${stats}</div>
       </div>
-      ${full ? `<div class="holo"></div>` : ""}
+      ${foil ? `<div class="holo ${foil}"></div>` : ""}
     </div>`;
   }
 
   // ---------- Header / boutique ----------
   function renderHeader() {
     $("#coins").textContent = fmt(state.coins);
-    $("#btn-standard").disabled = state.coins < PACKS.standard.cost;
-    $("#btn-premium").disabled = state.coins < PACKS.premium.cost;
+    $("#btn-standard").disabled = !DEMO && state.coins < PACKS.standard.cost;
+    $("#btn-premium").disabled = !DEMO && state.coins < PACKS.premium.cost;
     const left = state.lastFree + FREE_PACK_COOLDOWN - Date.now();
-    $("#btn-free").disabled = left > 0;
-    if (left > 0) {
+    $("#btn-free").disabled = !DEMO && left > 0;
+    if (DEMO) $("#free-timer").textContent = "Mode démo : illimité";
+    else if (left > 0) {
       const h = Math.floor(left / 3.6e6), m = Math.floor((left % 3.6e6) / 6e4), s = Math.floor((left % 6e4) / 1000);
       $("#free-timer").textContent = `Prochain dans ${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
     } else $("#free-timer").textContent = "Disponible !";
@@ -89,9 +99,9 @@
 
   function openPack(type) {
     const p = PACKS[type];
-    if (state.coins < p.cost) return;
+    if (!DEMO && state.coins < p.cost) return;
     if (type === "free") state.lastFree = Date.now();
-    state.coins -= p.cost;
+    if (!DEMO) state.coins -= p.cost;
     const cards = Array.from({ length: PACK_SIZE }, (_, i) => rollCard(i === PACK_SIZE - 1 ? p.minRarity : "commune"));
     cards.sort((a, b) => rank(a.rarity) - rank(b.rarity)); // suspense : la meilleure à la fin
     const fresh = cards.map(c => !state.owned[c.id]);
@@ -210,6 +220,35 @@
     $("#btn-quit").onclick = () => { $("#duel-board").hidden = true; $("#duel-setup").hidden = false; };
   }
 
+  // ---------- Mode démo ----------
+  function setupDemo() {
+    document.body.classList.add("demo");
+    $(".brand").insertAdjacentHTML("beforeend", ` <span class="demo-badge">DÉMO</span>`);
+    $("#view-shop").insertAdjacentHTML("beforeend", `
+      <div class="demo-panel">
+        <h3>🛠️ Mode démo</h3>
+        <p class="muted">Paquets gratuits et illimités. Progression séparée de ta vraie partie.</p>
+        <div class="demo-row">
+          <label>Forcer la rareté
+            <select id="demo-rarity"><option value="">Aléatoire (normal)</option>${RARITY_ORDER.map(r => `<option value="${r}">${THEME.rarities[r].label}</option>`).join("")}</select>
+          </label>
+        </div>
+        <div class="demo-row">
+          <button id="demo-all">Débloquer toutes les cartes</button>
+          <button id="demo-coins">+ 🪙 1 000</button>
+          <button id="demo-reset">Réinitialiser la démo</button>
+          <button id="demo-photos">Recharger les photos</button>
+          <button id="demo-exit">Quitter le mode démo</button>
+        </div>
+      </div>`);
+    $("#demo-rarity").onchange = e => (forcedRarity = e.target.value);
+    $("#demo-all").onclick = () => { THEME.cards.forEach(c => (state.owned[c.id] = state.owned[c.id] || 1)); save(); renderCollection(); toast("Toutes les cartes débloquées"); };
+    $("#demo-coins").onclick = () => { state.coins += 1000; save(); renderHeader(); };
+    $("#demo-reset").onclick = () => { state = defaultState(); save(); renderHeader(); renderCollection(); toast("Démo réinitialisée"); };
+    $("#demo-photos").onclick = () => { try { localStorage.removeItem("tcg-images-v1"); } catch {} location.reload(); };
+    $("#demo-exit").onclick = () => { try { localStorage.removeItem("tcg-demo"); } catch {} location.href = location.pathname; };
+  }
+
   // ---------- Initialisation ----------
   function init() {
     document.title = `${THEME.name} — jeu de cartes à collectionner`;
@@ -253,6 +292,17 @@
       card.style.setProperty("--rx", ((0.5 - y) * 14).toFixed(2) + "deg");
       card.style.setProperty("--ry", ((x - 0.5) * 14).toFixed(2) + "deg");
     });
+
+    // 5 tapes rapides sur le logo = activer/désactiver le mode démo
+    let taps = [];
+    $(".brand").addEventListener("click", () => {
+      taps = [...taps.filter(t => Date.now() - t < 2000), Date.now()];
+      if (taps.length >= 5) {
+        try { DEMO ? localStorage.removeItem("tcg-demo") : localStorage.setItem("tcg-demo", "1"); } catch {}
+        location.href = location.pathname;
+      }
+    });
+    if (DEMO) setupDemo();
 
     renderHeader(); renderCollection();
     setInterval(renderHeader, 1000);
