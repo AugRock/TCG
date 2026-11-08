@@ -106,7 +106,8 @@
     if (!DEMO) state.coins -= p.cost;
     const cards = Array.from({ length: PACK_SIZE }, (_, i) => rollCard(i === PACK_SIZE - 1 ? p.minRarity : "commune"));
     cards.sort((a, b) => rank(a.rarity) - rank(b.rarity)); // suspense : la meilleure à la fin
-    const fresh = cards.map(c => !state.owned[c.id]);
+    const seenNew = new Set();
+    const fresh = cards.map(c => !state.owned[c.id] && !seenNew.has(c.id) && seenNew.add(c.id));
     cards.forEach(c => (state.owned[c.id] = (state.owned[c.id] || 0) + 1));
     state.stats.packs++;
     save(); renderHeader();

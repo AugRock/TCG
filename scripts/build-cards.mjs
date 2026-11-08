@@ -369,7 +369,8 @@ for (const it of chosen) {
   firstSeen.add(k);
 }
 const cards = chosen.map(it => ({
-  id: it.id.toLowerCase(), name: it.name.charAt(0).toUpperCase() + it.name.slice(1), city: it.city || "France", region: it.region || null,
+  id: it.id.toLowerCase(), name: it.name.charAt(0).toUpperCase() + it.name.slice(1),
+  city: (it.city || "France").replace(/ (\d+(?:e|er)) Arrondissement$/i, " $1"), region: it.region || null,
   flag: "🇫🇷", sport: sportOf(it), year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
   club: [...it.clubs].slice(0, 2).join(", ") || undefined,
   img: it.photo || undefined, wikidata: /^Q\d+$/.test(it.id) ? it.id : undefined, res: it.res ? it.res.id : undefined,
