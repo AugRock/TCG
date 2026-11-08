@@ -1,5 +1,7 @@
 /*
  * Génère js/cards.js (les cartes du jeu) à partir de données ouvertes :
+ *  - Recensement des équipements sportifs (RES, ministère des Sports, data-es) : lieux avec tribunes,
+ *    places en tribune, commune, région, année de mise en service, coordonnées
  *  - Wikidata (CC0) : stades en France, capacité, ouverture, ville, région, sport, club, photo, notoriété
  *  - OpenStreetMap (ODbL) : capacité quand Wikidata ne l'a pas (via le tag wikidata=*)
  *  - Wikimedia Commons : URL, auteur et licence des photos
@@ -40,12 +42,13 @@ const val = (b, k) => b[k] && b[k].value;
 
 // ---------- 1. Stades en France (Wikidata) ----------
 const baseQuery = where => `
-SELECT ?s ?sLabel ?cap ?open ?inc ?img ?links ?classLabel WHERE {
+SELECT ?s ?sLabel ?cap ?open ?inc ?img ?links ?classLabel ?coord WHERE {
   ${where}
   ?s wikibase:sitelinks ?links .
   FILTER NOT EXISTS { ?s wdt:P576 [] }
   OPTIONAL { ?s wdt:P31 ?class }
   OPTIONAL { ?s wdt:P1083 ?cap }
+  OPTIONAL { ?s wdt:P625 ?coord }
   OPTIONAL { ?s wdt:P1619 ?open }
   OPTIONAL { ?s wdt:P571 ?inc }
   OPTIONAL { ?s wdt:P18 ?img }
@@ -58,6 +61,8 @@ function addRows(rows) {
   const id = qid(val(b, "s"));
   const it = items.get(id) || { id, name: val(b, "sLabel"), caps: [], years: [], openYears: [], img: null, links: 0, sports: new Set(), clubs: new Set(), classes: new Set() };
   if (val(b, "classLabel")) it.classes.add(val(b, "classLabel"));
+  const pt = /Point\(([-\d.]+) ([-\d.]+)\)/.exec(val(b, "coord") || "");
+  if (pt && !it.lat) { it.lon = Number(pt[1]); it.lat = Number(pt[2]); }
   if (val(b, "cap")) it.caps.push(Math.round(Number(val(b, "cap"))));
   if (val(b, "open")) it.openYears.push(year(val(b, "open")));
   if (val(b, "inc")) it.years.push(year(val(b, "inc")));
@@ -96,7 +101,7 @@ const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.k
 const osmQuery = `[out:json][timeout:240][maxsize:2000000000];area(id:3600002202)->.fr;
 nwr(area.fr)["capacity"]["leisure"~"^(stadium|sports_centre|sports_hall|track|ice_rink|pitch)$"];out tags;`;
 let osm = null;
-for (const ep of OVERPASS) {
+for (const ep of process.env.USE_OSM === "1" ? OVERPASS : []) {
   try {
     const res = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }), signal: AbortSignal.timeout(240000) }, 1);
     const nb = (res.elements || []).length;
@@ -156,6 +161,73 @@ for (const [id, it] of items) {
 }
 log(`Écartés (pas des lieux sportifs) : ${removed.length} — ${removed.slice(0, 20).join(" · ")}`);
 
+// ---------- 3c. Recensement des équipements sportifs (RES) ----------
+const RES_MIN = 300; // places en tribune minimum pour devenir une carte
+const resInst = new Map(); // inst_numero -> installation
+try {
+  const url = "https://equipements.sports.gouv.fr/api/explore/v2.1/catalog/datasets/data-es/exports/json?" + new URLSearchParams({
+    where: `equip_trib_nb >= ${RES_MIN}`,
+    select: "inst_numero,inst_nom,equip_nom,equip_type_name,new_name,dep_nom,reg_nom,equip_service_date,equip_coordonnees,equip_trib_nb,inst_hs_bool",
+  });
+  const rows = await http(url, { signal: AbortSignal.timeout(300000) }, 3);
+  log(`RES : ${rows.length} équipements avec au moins ${RES_MIN} places en tribune`);
+  for (const e of rows) {
+    if (e.inst_hs_bool === "Oui") continue;
+    const cap = Math.round(Number(e.equip_trib_nb) || 0);
+    const prev = resInst.get(e.inst_numero);
+    // capacité de l'installation = son plus grand équipement (les tribunes sont souvent partagées terrain/piste)
+    if (prev && prev.cap >= cap) { prev.types.add(e.equip_type_name); continue; }
+    resInst.set(e.inst_numero, {
+      id: e.inst_numero, name: (e.inst_nom || e.equip_nom || "").trim(), city: e.new_name, dep: e.dep_nom, region: e.reg_nom,
+      year: /^\d{4}$/.test(String(e.equip_service_date)) ? Number(e.equip_service_date) : null,
+      lat: e.equip_coordonnees && e.equip_coordonnees.lat, lon: e.equip_coordonnees && e.equip_coordonnees.lon,
+      cap, type: e.equip_type_name, types: new Set([...(prev ? prev.types : []), e.equip_type_name]),
+    });
+  }
+  const top = [...resInst.values()].sort((a, b) => b.cap - a.cap);
+  log(`RES : ${resInst.size} installations · top 10 : ${top.slice(0, 10).map(x => `${x.name} (${x.city}, ${x.cap}, ${x.type})`).join(" · ")}`);
+  log(`RES : types d'équipements : ${Object.entries(top.reduce((m, x) => ((m[x.type] = (m[x.type] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([a, b]) => `${a} ${b}`).join(", ")}`);
+} catch (e) { log(`⚠️ RES indisponible : ${e.message.slice(0, 200)}`); }
+
+// Rattachement Wikidata ↔ RES par proximité (< 500 m)
+const dist = (a, b) => {
+  const R = 6371000, toR = x => (x * Math.PI) / 180;
+  const dLat = toR(b.lat - a.lat), dLon = toR(b.lon - a.lon);
+  return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat / 2) ** 2 + Math.cos(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.sin(dLon / 2) ** 2));
+};
+const grid = new Map(), cell = (lat, lon) => `${Math.floor(lat * 50)}|${Math.floor(lon * 50)}`;
+for (const x of resInst.values()) if (x.lat) { const k = cell(x.lat, x.lon); (grid.get(k) || grid.set(k, []).get(k)).push(x); }
+let matched = 0;
+const usedRes = new Set();
+for (const it of items.values()) {
+  if (!it.lat) continue;
+  let best = null, bestD = 500;
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    for (const x of grid.get(`${Math.floor(it.lat * 50) + i}|${Math.floor(it.lon * 50) + j}`) || []) {
+      const d = dist(it, x);
+      if (d < bestD && !usedRes.has(x.id)) { best = x; bestD = d; }
+    }
+  }
+  if (!best) continue;
+  usedRes.add(best.id); matched++;
+  it.res = best;
+  if (!it.caps.length) { it.caps.push(best.cap); it.capFromRes = true; }
+  if (!it.region) it.region = best.region;
+  if (!it.city) it.city = best.city;
+  if (!it.openYears.length && !it.years.length && best.year) it.years.push(best.year);
+  best.types.forEach(t => t && it.sports.add(t.toLowerCase()));
+}
+log(`RES ↔ Wikidata : ${matched} lieux rattachés`);
+// Installations RES sans fiche Wikidata : cartes à part entière
+let resOnly = 0;
+for (const x of resInst.values()) {
+  if (usedRes.has(x.id) || !x.name) continue;
+  items.set("res" + x.id, { id: "res" + x.id, name: x.name, city: x.city, region: x.region, caps: [x.cap], years: x.year ? [x.year] : [], openYears: [],
+    img: null, links: 0, sports: new Set([...x.types].filter(Boolean).map(t => t.toLowerCase())), clubs: new Set(), classes: new Set(["RES"]), resOnly: true, res: x });
+  resOnly++;
+}
+log(`RES : ${resOnly} installations ajoutées sans fiche Wikidata`);
+
 // ---------- 3b. Ville, région, sport, club ----------
 const ids = [...items.keys()].filter(id => /^Q\d+$/.test(id) && items.get(id).caps.length);
 await batched(ids, v => `SELECT ?s ?cityLabel WHERE { VALUES ?s { ${v} } ?s wdt:P131 ?city .
@@ -181,15 +253,15 @@ const SPORT_RULES = [
   ["rugby", /rugby/],
   ["tennis", /tennis/],
   ["basket", /basket/],
-  ["multisport", /osm:multi/],
+  ["multisport", /osm:multi|multisport/],
   ["handball", /handball/],
-  ["hockey", /hockey|osm:ice_skating/],
+  ["hockey", /hockey|patinoire|glace|osm:ice_skating/],
   ["athletisme", /athlétisme|athletics/],
   ["cyclisme", /cyclisme|vélo|cycling/],
-  ["auto", /automobile|motocyclisme|sport mécanique|motorsport|motor/],
-  ["hippique", /hippique|équitation|horse|equestrian/],
+  ["auto", /automobile|motocyclisme|moto|karting|sport mécanique|motorsport|motor/],
+  ["hippique", /hippique|hippodrome|équitation|équestre|horse|equestrian/],
   ["baseball", /baseball/],
-  ["natation", /natation|swimming|piscine|osm:swimming/],
+  ["natation", /natation|swimming|piscine|bassin|osm:swimming/],
   ["golf", /golf/],
 ];
 function sportOf(it) {
@@ -266,7 +338,7 @@ const cards = chosen.map(it => ({
   id: it.id.toLowerCase(), name: it.name.charAt(0).toUpperCase() + it.name.slice(1), city: it.city || "France", region: it.region || null,
   flag: "🇫🇷", sport: sportOf(it), year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
   club: [...it.clubs].slice(0, 2).join(", ") || undefined,
-  img: it.photo || undefined, wikidata: it.osmOnly ? undefined : it.id,
+  img: it.photo || undefined, wikidata: /^Q\d+$/.test(it.id) ? it.id : undefined, res: it.res ? it.res.id : undefined,
   osm: it.osmOnly ? it.id.replace(/^osm(\w)(\d+)$/, (_, t, n) => `${{ n: "node", w: "way", r: "relation" }[t]}/${n}`) : undefined,
 }));
 const count = k => Object.entries(cards.reduce((m, c) => ((m[c[k] || "?"] = (m[c[k] || "?"] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1]).map(([a, b]) => `${a} ${b}`).join(", ");
@@ -276,14 +348,15 @@ log(`Régions : ${count("region")}`);
 log(`Types de lieux : ${Object.entries(chosen.reduce((m, it) => { [...it.classes].slice(0, 1).forEach(k => (m[k] = (m[k] || 0) + 1)); return m; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([a, b]) => `${a} ${b}`).join(", ")}`);
 const odd = chosen.filter(it => [...it.classes].some(c => NOT_SPORT.test(c)));
 log(`À vérifier (classe culturelle + sportive) : ${odd.map(it => `${it.name} [${[...it.classes].join(", ")}]`).join(" · ")}`);
-log(`Sans année : ${cards.filter(c => !c.year).length} · Capacité via OSM : ${chosen.filter(c => c.osm).length} · Lieux uniquement OSM : ${chosen.filter(c => c.osmOnly).length}`);
+log(`Sans année : ${cards.filter(c => !c.year).length} · Capacité via RES : ${chosen.filter(c => c.capFromRes).length} · Uniquement RES : ${chosen.filter(c => c.resOnly).length} · Uniquement OSM : ${chosen.filter(c => c.osmOnly).length}`);
 log(`Top 15 : ${cards.slice(0, 15).map(c => `${c.name} (${c.capacity})`).join(" · ")}`);
 
 const header = `/* FICHIER GÉNÉRÉ par scripts/build-cards.mjs — ne pas modifier à la main.
- * Données : Wikidata (CC0), © contributeurs OpenStreetMap (ODbL), photos Wikimedia Commons (auteurs et licences indiqués).
+ * Données : Recensement des équipements sportifs (ministère des Sports), Wikidata (CC0), © contributeurs OpenStreetMap (ODbL),
+ * photos Wikimedia Commons (auteurs et licences indiqués).
  * Généré le ${new Date().toISOString().slice(0, 10)} · ${cards.length} cartes */\n`;
 writeFileSync("js/cards.js", header +
-  `THEME.tagline = "Collectionne les ${cards.length} stades et arènes de France";\nTHEME.cards = ${JSON.stringify(cards, null, 0).replace(/\},\{/g, "},\n{")};\n`);
+  `THEME.tagline = "Collectionne les ${cards.length} stades et salles de France";\nTHEME.cards = ${JSON.stringify(cards, null, 0).replace(/\},\{/g, "},\n{")};\n`);
 mkdirSync("data", { recursive: true });
 writeFileSync("data/build-report.txt", report.join("\n") + "\n");
 console.log("OK → js/cards.js");

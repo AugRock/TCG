@@ -47,8 +47,10 @@ Sans connexion, les cartes s'affichent avec une icône à la place de la photo.
 
 ## Base de données : 1000 stades de France
 `scripts/build-cards.mjs` génère `js/cards.js` à partir de :
-- **Wikidata** (CC0) : stades en France non démolis, capacité, ouverture, ville, région, sport, club résident, photo
-- **OpenStreetMap** (ODbL, attribution obligatoire) : capacité quand Wikidata ne l'a pas
+- **Recensement des équipements sportifs** (RES, ministère des Sports, jeu `data-es` sur equipements.sports.gouv.fr) :
+  tous les équipements avec au moins 300 places en tribune, commune, région, année de mise en service, coordonnées
+- **Wikidata** (CC0), rattaché au RES par proximité GPS (< 500 m) : stades en France non démolis, capacité, ouverture, ville, région, sport, club résident, photo
+- **OpenStreetMap** (ODbL, attribution obligatoire) : optionnel (`USE_OSM=1`), serveurs publics souvent saturés
 - **Wikimedia Commons** : URL, auteur et licence des photos
 
 Rareté et prestige sont calculés à partir de la notoriété (nombre de Wikipédias qui parlent du stade) :
