@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tribunes — jeu de cartes à collectionner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">🏟️</span> <span id="game-name"></span></div>
+    <nav class="tabs">
+      <button data-view="shop" class="active">Boutique</button>
+      <button data-view="collection">Collection</button>
+      <button data-view="duel">Duel</button>
+    </nav>
+    <div class="wallet"><span class="coin">🪙</span> <span id="coins">0</span></div>
+  </header>
+
+  <main>
+    <!-- BOUTIQUE -->
+    <section id="view-shop" class="view active">
+      <p class="tagline" id="tagline"></p>
+      <div class="shop-grid">
+        <div class="pack-offer">
+          <div class="pack-art free">🎁</div>
+          <h3>Paquet gratuit</h3>
+          <p>5 cartes · toutes les 4 heures</p>
+          <button id="btn-free" class="primary">Ouvrir</button>
+          <small id="free-timer"></small>
+        </div>
+        <div class="pack-offer">
+          <div class="pack-art">📦</div>
+          <h3>Paquet standard</h3>
+          <p>5 cartes · 1 rare minimum</p>
+          <button id="btn-standard" class="primary">Ouvrir · 🪙 100</button>
+        </div>
+        <div class="pack-offer">
+          <div class="pack-art premium">💎</div>
+          <h3>Paquet prestige</h3>
+          <p>5 cartes · 1 épique minimum</p>
+          <button id="btn-premium" class="primary">Ouvrir · 🪙 300</button>
+        </div>
+      </div>
+      <div class="odds" id="odds"></div>
+    </section>
+
+    <!-- COLLECTION -->
+    <section id="view-collection" class="view">
+      <div class="collection-head">
+        <div>
+          <h2>Ma collection</h2>
+          <div class="progress"><div id="progress-bar"></div></div>
+          <small id="progress-text"></small>
+        </div>
+        <div class="filters">
+          <select id="filter-sport"></select>
+          <select id="filter-rarity"></select>
+          <label><input type="checkbox" id="filter-owned"> Possédées uniquement</label>
+          <button id="btn-sell-dupes">Recycler les doublons</button>
+        </div>
+      </div>
+      <div id="collection-grid" class="card-grid"></div>
+    </section>
+
+    <!-- DUEL -->
+    <section id="view-duel" class="view">
+      <div id="duel-setup">
+        <h2>Duel</h2>
+        <p>Ton deck = tes 5 meilleures cartes. À chaque manche, choisis la statistique : la plus haute l'emporte. Premier à 3 manches gagne.</p>
+        <p class="muted">Victoire : 🪙 50 · Défaite : 🪙 10</p>
+        <button id="btn-start-duel" class="primary">Lancer un duel</button>
+        <p id="duel-warning" class="muted"></p>
+      </div>
+      <div id="duel-board" hidden>
+        <div class="score"><span>Toi <b id="score-me">0</b></span> — <span><b id="score-ai">0</b> Adversaire</span></div>
+        <div class="duel-arena">
+          <div id="duel-me" class="duel-slot"></div>
+          <div class="vs">VS</div>
+          <div id="duel-ai" class="duel-slot"></div>
+        </div>
+        <div id="duel-actions"></div>
+        <p id="duel-log"></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Ouverture de paquet -->
+  <div id="pack-modal" class="modal" hidden>
+    <div class="modal-inner">
+      <h2>Ton paquet</h2>
+      <div id="pack-cards" class="pack-cards"></div>
+      <div class="modal-actions">
+        <button id="btn-reveal-all">Tout révéler</button>
+        <button id="btn-close-pack" class="primary">Continuer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Détail carte -->
+  <div id="card-modal" class="modal" hidden>
+    <div class="modal-inner small" id="card-detail"></div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
