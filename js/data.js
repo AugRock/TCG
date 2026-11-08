@@ -44,6 +44,10 @@ const THEME = {
     natation:  { label: "Natation",            icon: "🏊" },
     golf:      { label: "Golf",                icon: "⛳" },
     multisport:{ label: "Multisport",          icon: "🏟️" },
+    arenes:    { label: "Arènes",              icon: "🐂" },
+    pelote:    { label: "Pelote basque",       icon: "🥎" },
+    combat:    { label: "Sports de combat",    icon: "🥋" },
+    gym:       { label: "Gymnastique",         icon: "🤸" },
     autre:     { label: "Autres sports",       icon: "🏟️" },
   },
 

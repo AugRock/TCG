@@ -173,6 +173,7 @@ try {
   log(`RES : ${rows.length} équipements avec au moins ${RES_MIN} places en tribune`);
   for (const e of rows) {
     if (e.inst_hs_bool === "Oui") continue;
+    if (/fêtes|spectacle|zenith|zénith|non spécialisée/i.test(e.equip_type_name || "")) continue; // pas des lieux sportifs
     const cap = Math.round(Number(e.equip_trib_nb) || 0);
     const prev = resInst.get(e.inst_numero);
     // capacité de l'installation = son plus grand équipement (les tribunes sont souvent partagées terrain/piste)
@@ -249,7 +250,7 @@ await batched(ids, v => `SELECT ?s ?sportLabel ?clubLabel ?clubSportLabel WHERE 
 // ---------- 4. Nettoyage et sélection ----------
 const SPORT_RULES = [
   ["us", /football américain|osm:american_football/],
-  ["football", /^football$|football association|association football|soccer|osm:soccer/],
+  ["football", /football(?! américain)|soccer|terrain mixte/],
   ["rugby", /rugby/],
   ["tennis", /tennis/],
   ["basket", /basket/],
@@ -259,7 +260,11 @@ const SPORT_RULES = [
   ["athletisme", /athlétisme|athletics/],
   ["cyclisme", /cyclisme|vélo|cycling/],
   ["auto", /automobile|motocyclisme|moto|karting|sport mécanique|motorsport|motor/],
-  ["hippique", /hippique|hippodrome|équitation|équestre|horse|equestrian/],
+  ["hippique", /hippique|hippodrome|équitation|équestre|horse|equestrian|carrière|manège|course sur le plat|trot|obstacle/],
+  ["arenes", /arène|tauromachie|course camarguaise|course landaise|corrida/],
+  ["pelote", /pelote|fronton|trinquet|jaï-alaï|cesta/],
+  ["combat", /dojo|arts martiaux|judo|boxe|lutte|escrime/],
+  ["gym", /gymnastique/],
   ["baseball", /baseball/],
   ["natation", /natation|swimming|piscine|bassin|osm:swimming/],
   ["golf", /golf/],
@@ -282,6 +287,20 @@ for (const o of osmOnly) {
   items.set(o.id, { id: o.id, name: o.name, city: o.city, caps: [o.cap], years: [], openYears: [], img: null, links: 0,
     sports: new Set(o.sport ? o.sport.split(";").map(x => "osm:" + x.trim()) : []), clubs: new Set(), classes: new Set(["OSM"]), osm: true, osmOnly: true });
 }
+// Noms du RES souvent en MAJUSCULES : « STADE DE FRANCE » → « Stade de France »
+const SMALL = new Set(["de", "du", "des", "la", "le", "les", "et", "à", "au", "aux", "sur", "en", "sous", "ou"]);
+function tidyName(n) {
+  n = String(n || "").replace(/\s+/g, " ").trim();
+  const letters = n.replace(/[^\p{L}]/gu, ""), upper = letters.replace(/[^\p{Lu}]/gu, "");
+  if (!letters.length || upper.length / letters.length < 0.7) return n; // déjà en casse normale
+  return n.toLowerCase().replace(/[\p{L}]+(['’-]?)/gu, (w, _p, off) => {
+    const base = w.replace(/['’-]$/, "");
+    if (off > 0 && SMALL.has(base)) return w;
+    if (/^[dl]['’]/.test(w) && off > 0) return w;
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }).replace(/\b([dl])['’](\p{L})/gu, (m, a, b) => a + "'" + b.toUpperCase());
+}
+for (const it of items.values()) it.name = tidyName(it.name);
 const all = [...items.values()];
 const eligible = all.filter(it => it.caps.length && it.name && !/^Q\d+$/.test(it.name));
 log(`Avec une capacité connue : ${eligible.length} (sans capacité, écartés : ${all.length - eligible.length})`);
