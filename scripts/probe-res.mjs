@@ -19,3 +19,4 @@ await get("https://equipements.sports.gouv.fr/api/explore/v2.1/catalog/datasets?
 await get("https://equipements.sports.gouv.fr/api/explore/v2.1/catalog/datasets/data-es/records?limit=2");
 mkdirSync("data", { recursive: true });
 writeFileSync("data/probe-res.txt", out.join("\n"));
+console.log(out.join("\n"));

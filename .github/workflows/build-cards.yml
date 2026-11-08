@@ -17,7 +17,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,12 +29,14 @@ jobs:
       - name: Générer js/cards.js
         run: node scripts/build-cards.mjs "${{ github.event.inputs.count || '1000' }}"
       - name: Résumé
+        if: always()
         run: cat data/build-report.txt >> "$GITHUB_STEP_SUMMARY"
       - name: Enregistrer
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add js/cards.js data/build-report.txt data/probe-res.txt
+          git add -A js/cards.js data/
           git diff --cached --quiet && echo "Aucun changement" && exit 0
           git commit -m "Cartes régénérées depuis Wikidata"
           git push

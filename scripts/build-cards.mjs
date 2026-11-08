@@ -98,7 +98,7 @@ nwr(area.fr)["capacity"]["leisure"~"^(stadium|sports_centre|sports_hall|track|ic
 let osm = null;
 for (const ep of OVERPASS) {
   try {
-    const res = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }) }, 4);
+    const res = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }), signal: AbortSignal.timeout(240000) }, 1);
     const nb = (res.elements || []).length;
     log(`OpenStreetMap (${new URL(ep).host}) : ${nb} lieux sportifs avec capacité${res.remark ? " — " + res.remark.slice(0, 200) : ""}`);
     if (nb > 0) { osm = res; break; }
