@@ -41,6 +41,8 @@ const THEME = {
     athletisme:{ label: "Athlétisme",          icon: "🏃" },
     cyclisme:  { label: "Cyclisme",            icon: "🚴" },
     hippique:  { label: "Hippisme",            icon: "🏇" },
+    natation:  { label: "Natation",            icon: "🏊" },
+    golf:      { label: "Golf",                icon: "⛳" },
     autre:     { label: "Autres sports",       icon: "🏟️" },
   },
 
