@@ -7,6 +7,17 @@ HTTP 200
   - dataes | ogc:wms | ? o | https://www.geo2france.fr/geoserver/vrt-bot/ows
   - Téléchargement de la données source | www:link-1.0-http--related | ? o | https://equipements.sports.gouv.fr/pages/accueil/
 
+== Recensement des équipements sportifs en Essonne | Région Île-de-France | https://www.data.gouv.fr/datasets/recensement-des-equipements-sportifs-en-essonne
+  - Export au format CSV | csv | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=csv&timezone=Europe/Berlin&use_labels_for_header=false
+  - Export au format JSON | json | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=json&timezone=Europe/Berlin&use_labels_for_header=false
+  - Export au format GeoJSON | json | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=geojson&timezone=Europe/Berlin&use_labels_for_header=false
+  - Export au format Shapefile | shp | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=shp&timezone=Europe/Berlin&use_labels_for_header=false
+  - recensement_des_equipements_sportifs_en_essonne.csv | csv | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/csv?use_labels=true
+  - recensement_des_equipements_sportifs_en_essonne.json | json | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/json
+  - recensement_des_equipements_sportifs_en_essonne.geojson | json | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/geojson
+  - recensement_des_equipements_sportifs_en_essonne.zip | zip | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/shp
+  - 20180110_DocumentationRES_data.gouv.pdf | pdf | ? o | https://data.iledefrance.fr/api/v2/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/attachments/20180110_documentationres_data_gouv_pdf
+
 == Recensement des équipements sportifs en Essonne | Région Île-de-France | https://www.data.gouv.fr/datasets/recensement-des-equipements-sportifs-en-essonne-idf
   - Fichier CSV | csv | ? o | http://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=csv
   - Fichier JSON | json | ? o | http://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=json
@@ -31,17 +42,6 @@ HTTP 200
   - Fichier XLS | xls | ? o | http://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_a_paris/download?format=xls
   - Fichier SHAPEFILE | shp | ? o | http://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_a_paris/download?format=shp
   - Donnees_Equipements_sportifs.csv | xls | ? o | http://data.iledefrance.fr/api/datasets/1.0/recensement_des_equipements_sportifs_a_paris/attachments/donnees_equipements_sportifs_csv
-
-== Recensement des équipements sportifs en Essonne | Région Île-de-France | https://www.data.gouv.fr/datasets/recensement-des-equipements-sportifs-en-essonne
-  - Export au format CSV | csv | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=csv&timezone=Europe/Berlin&use_labels_for_header=false
-  - Export au format JSON | json | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=json&timezone=Europe/Berlin&use_labels_for_header=false
-  - Export au format GeoJSON | json | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=geojson&timezone=Europe/Berlin&use_labels_for_header=false
-  - Export au format Shapefile | shp | ? o | https://data.iledefrance.fr/explore/dataset/recensement_des_equipements_sportifs_en_essonne/download?format=shp&timezone=Europe/Berlin&use_labels_for_header=false
-  - recensement_des_equipements_sportifs_en_essonne.csv | csv | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/csv?use_labels=true
-  - recensement_des_equipements_sportifs_en_essonne.json | json | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/json
-  - recensement_des_equipements_sportifs_en_essonne.geojson | json | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/geojson
-  - recensement_des_equipements_sportifs_en_essonne.zip | zip | ? o | https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/exports/shp
-  - 20180110_DocumentationRES_data.gouv.pdf | pdf | ? o | https://data.iledefrance.fr/api/v2/catalog/datasets/recensement_des_equipements_sportifs_en_essonne/attachments/20180110_documentationres_data_gouv_pdf
 
 ### https://equipements.sports.gouv.fr/api/explore/v2.1/catalog/datasets?limit=20
 HTTP 200
