@@ -45,6 +45,18 @@ Sans connexion, les cartes s'affichent avec une icône à la place de la photo.
 - Données générées automatiquement depuis Wikipedia/Wikidata (rareté = popularité de la page, comme WikiMasters)
 - Échanges entre joueurs, classement, quêtes quotidiennes, sets saisonniers
 
+## Base de données : 1000 stades de France
+`scripts/build-cards.mjs` génère `js/cards.js` à partir de :
+- **Wikidata** (CC0) : stades en France non démolis, capacité, ouverture, ville, région, sport, club résident, photo
+- **OpenStreetMap** (ODbL, attribution obligatoire) : capacité quand Wikidata ne l'a pas
+- **Wikimedia Commons** : URL, auteur et licence des photos
+
+Rareté et prestige sont calculés à partir de la notoriété (nombre de Wikipédias qui parlent du stade) :
+1 % légendaire, 4 % épique, 15 % rare, 80 % commune.
+
+Le script tourne sur GitHub Actions (onglet **Actions → Générer les cartes → Run workflow**, nombre de cartes réglable)
+et enregistre le résultat. Rapport du dernier passage : `data/build-report.txt`.
+
 ## Mode démo (pour tester)
 Ajoute `?demo=1` à l'adresse (ex. `https://augrock.github.io/TCG/?demo=1`), ou tape 5 fois rapidement sur le logo.
 - Paquets gratuits et illimités, minuteur désactivé

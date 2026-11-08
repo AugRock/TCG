@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache">
   <title>Tribunes — jeu de cartes à collectionner</title>
-  <link rel="stylesheet" href="styles.css?v=0.4">
+  <link rel="stylesheet" href="styles.css?v=0.5">
 </head>
 <body>
   <header class="topbar">
@@ -55,6 +55,8 @@
           <small id="progress-text"></small>
         </div>
         <div class="filters">
+          <input type="search" id="filter-search" placeholder="Rechercher (stade, ville, club)">
+          <select id="filter-region"></select>
           <select id="filter-sport"></select>
           <select id="filter-rarity"></select>
           <label><input type="checkbox" id="filter-owned"> Possédées uniquement</label>
@@ -62,6 +64,7 @@
         </div>
       </div>
       <div id="collection-grid" class="card-grid"></div>
+      <div class="more"><button id="collection-more" hidden></button></div>
     </section>
 
     <!-- DUEL -->
@@ -103,12 +106,13 @@
     <div class="modal-inner small" id="card-detail"></div>
   </div>
 
-  <footer class="version">Tribunes v0.4</footer>
+  <footer class="version">Tribunes v0.5 · Données : Wikidata, © contributeurs OpenStreetMap · Photos : Wikimedia Commons</footer>
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="js/data.js?v=0.4"></script>
-  <script src="js/images.js?v=0.4"></script>
-  <script src="js/app.js?v=0.4"></script>
+  <script src="js/data.js?v=0.5"></script>
+  <script src="js/cards.js?v=0.5"></script>
+  <script src="js/images.js?v=0.5"></script>
+  <script src="js/app.js?v=0.5"></script>
 </body>
 </html>

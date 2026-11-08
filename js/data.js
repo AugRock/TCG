@@ -7,6 +7,7 @@
  * Photos : chargées depuis Wikimedia Commons (image principale de l'article
  * Wikipedia anglais indiqué par "wiki"). Pour forcer une photo précise,
  * ajouter  image: "Nom_du_fichier.jpg"  (fichier Commons) à la carte.
+ * Les cartes de js/cards.js (générées depuis Wikidata) remplacent celles-ci si le fichier existe.
  * Statistique de jeu : "prestige" (0-100) est un choix d'équilibrage, pas une donnée.
  * Capacités approximatives (elles changent avec les rénovations).
  */
@@ -35,13 +36,18 @@ const THEME = {
     basket:    { label: "Basket",              icon: "🏀" },
     auto:      { label: "Sport auto",          icon: "🏁" },
     olympique: { label: "Olympique",           icon: "🏅" },
+    handball:  { label: "Handball",            icon: "🤾" },
+    hockey:    { label: "Hockey",              icon: "🏒" },
+    athletisme:{ label: "Athlétisme",          icon: "🏃" },
+    cyclisme:  { label: "Cyclisme",            icon: "🚴" },
+    hippique:  { label: "Hippisme",            icon: "🏇" },
     autre:     { label: "Autres sports",       icon: "🏟️" },
   },
 
   // Statistiques utilisées en duel (la plus haute gagne)
   stats: [
     { key: "capacity", label: "Capacité",   icon: "👥", unit: "places", get: c => c.capacity },
-    { key: "age",      label: "Ancienneté", icon: "⏳", unit: "ans",    get: c => THEME.currentYear - c.year },
+    { key: "age",      label: "Ancienneté", icon: "⏳", unit: "ans",    get: c => (c.year ? THEME.currentYear - c.year : 0), show: c => (c.year ? null : "?") },
     { key: "prestige", label: "Prestige",   icon: "⭐", unit: "/100",   get: c => c.prestige },
   ],
 

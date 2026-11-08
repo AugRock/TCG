@@ -72,16 +72,21 @@ const CardImages = (() => {
   }
 
   async function load(cards) {
+    // Photos déjà préparées par scripts/build-cards.mjs : rien à demander
+    cards.forEach(c => { if (c.img) images[c.id] = c.img; });
+    cards = cards.filter(c => !c.img && (c.wiki || c.image));
+    if (!cards.length) return images;
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
       if (cached && Date.now() - cached.t < TTL && cards.every(c => c.id in cached.images || cached.missing.includes(c.id))) {
-        return (images = cached.images);
+        return Object.assign(images, cached.images);
       }
     } catch {}
     try {
-      images = await fetchAll(cards);
-      const missing = cards.filter(c => !images[c.id]).map(c => c.id);
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), images, missing })); } catch {}
+      const fetched = await fetchAll(cards);
+      Object.assign(images, fetched);
+      const missing = cards.filter(c => !fetched[c.id]).map(c => c.id);
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), images: fetched, missing })); } catch {}
     } catch (e) {
       console.warn("Photos indisponibles (hors ligne ?) :", e.message);
     }

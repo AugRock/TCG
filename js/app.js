@@ -26,6 +26,8 @@
   let state;
   try { state = { ...defaultState(), ...JSON.parse(localStorage.getItem(SAVE_KEY) || "{}") }; }
   catch { state = defaultState(); }
+  // Cartes qui n'existent plus (changement de base de données) : on les retire de la sauvegarde
+  state.owned = Object.fromEntries(Object.entries(state.owned || {}).filter(([id]) => byId[id]));
   const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch {} };
 
   // ---------- Utilitaires ----------
@@ -67,7 +69,7 @@
         <div class="c-art">❔</div><div class="c-name">???</div><div class="c-city">${sport.label}</div></div>`;
     }
     const style = img ? ` style="--img:url(&quot;${esc(img.url)}&quot;)"` : "";
-    const stats = THEME.stats.map(st => `<div data-stat="${st.key}" title="${st.label}"><b>${fmt(st.get(c))}</b>${st.icon} <span class="lbl">${st.label}</span></div>`).join("");
+    const stats = THEME.stats.map(st => `<div data-stat="${st.key}" title="${st.label}"><b>${(st.show && st.show(c)) || fmt(st.get(c))}</b>${st.icon} <span class="lbl">${st.label}</span></div>`).join("");
     const art = full ? `<div class="c-spacer"></div>`
       : `<div class="c-art">${img ? "" : sport.icon}<span class="flag">${c.flag}</span>${img ? `<span class="sport-chip">${sport.icon}</span>` : ""}</div>`;
     return `<div class="${cls}" data-id="${c.id}"${style}>
@@ -75,8 +77,8 @@
       <div class="c-top"><span>${THEME.rarities[c.rarity].label}</span><span>${full ? sport.icon + " " + c.flag : sport.label}</span></div>
       ${art}
       <div class="c-info">
-        <div class="c-name">${c.name}</div>
-        <div class="c-city">${c.city} · ${c.year}</div>
+        <div class="c-name">${esc(c.name)}</div>
+        <div class="c-city">${esc(c.city)}${c.year ? " · " + c.year : ""}</div>
         <div class="c-stats">${stats}</div>
       </div>
       ${foil ? `<div class="holo ${foil}"></div>` : ""}
@@ -116,18 +118,27 @@
   }
 
   // ---------- Collection ----------
-  function renderCollection() {
+  const PAGE = 60;
+  let shown = PAGE;
+  const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  function renderCollection(keepPage) {
+    if (keepPage !== true) shown = PAGE;
     const sport = $("#filter-sport").value, rar = $("#filter-rarity").value, ownedOnly = $("#filter-owned").checked;
+    const region = $("#filter-region").value, q = norm($("#filter-search").value);
     const ownedCount = THEME.cards.filter(c => state.owned[c.id]).length;
     const pct = Math.round((ownedCount / THEME.cards.length) * 100);
     $("#progress-bar").style.width = pct + "%";
     $("#progress-text").textContent = `${ownedCount} / ${THEME.cards.length} cartes (${pct} %) · ${state.stats.packs} paquets ouverts · ${state.stats.wins} victoires`;
 
     const list = THEME.cards
-      .filter(c => (!sport || c.sport === sport) && (!rar || c.rarity === rar) && (!ownedOnly || state.owned[c.id]))
-      .sort((a, b) => rank(b.rarity) - rank(a.rarity) || a.name.localeCompare(b.name));
-    $("#collection-grid").innerHTML = list.map(c => cardHTML(c, { count: state.owned[c.id] || 0, missing: !state.owned[c.id] })).join("")
+      .filter(c => (!sport || c.sport === sport) && (!rar || c.rarity === rar) && (!region || c.region === region)
+        && (!ownedOnly || state.owned[c.id])
+        && (!q || (state.owned[c.id] && norm(c.name + " " + c.city + " " + (c.club || "")).includes(q))))
+      .sort((a, b) => !!state.owned[b.id] - !!state.owned[a.id] || rank(b.rarity) - rank(a.rarity) || b.prestige - a.prestige);
+    $("#collection-grid").innerHTML = list.slice(0, shown).map(c => cardHTML(c, { count: state.owned[c.id] || 0, missing: !state.owned[c.id] })).join("")
       || `<p class="muted">Aucune carte.</p>`;
+    $("#collection-more").hidden = list.length <= shown;
+    $("#collection-more").textContent = `Afficher plus (${list.length - shown} restantes)`;
   }
 
   function sellDupes() {
@@ -145,8 +156,10 @@
     if (!state.owned[c.id]) return;
     const sport = THEME.sports[c.sport];
     $("#card-detail").innerHTML = `<div class="detail-card">${cardHTML(c)}</div>
-      <h3>${c.flag} ${c.name}</h3>
-      <p class="muted">${sport.icon} ${sport.label} · ${c.city} · ouvert en ${c.year}<br>${fmt(c.capacity)} places</p>
+      <h3>${c.flag} ${esc(c.name)}</h3>
+      <p class="muted">${sport.icon} ${sport.label} · ${c.city}${c.region ? " (" + c.region + ")" : ""}<br>${c.year ? "Ouvert en " + c.year + " · " : ""}${fmt(c.capacity)} places</p>
+      ${c.club ? `<p>Club résident : <b>${esc(c.club)}</b></p>` : ""}
+      ${c.wikidata ? `<p class="credit"><a href="https://www.wikidata.org/wiki/${c.wikidata}" target="_blank" rel="noopener">Fiche Wikidata</a></p>` : ""}
       ${c.fact ? `<p>${c.fact}</p>` : ""}
       ${(img => img ? `<p class="credit">Photo : <a href="${esc(img.page)}" target="_blank" rel="noopener">${esc(img.artist)}</a> · ${esc(img.license)} · Wikimedia Commons</p>` : "")(CardImages.get(c.id))}
       <p class="muted">Exemplaires : ${state.owned[c.id]}</p>
@@ -263,7 +276,12 @@
         .map(([k, s]) => `<option value="${k}">${s.icon} ${s.label}</option>`).join("");
     $("#filter-rarity").innerHTML = `<option value="">Toutes raretés</option>` +
       RARITY_ORDER.map(r => `<option value="${r}">${THEME.rarities[r].label}</option>`).join("");
-    ["#filter-sport", "#filter-rarity", "#filter-owned"].forEach(s => $(s).addEventListener("change", renderCollection));
+    const regions = [...new Set(THEME.cards.map(c => c.region).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+    $("#filter-region").innerHTML = `<option value="">Toutes les régions</option>` + regions.map(r => `<option>${esc(r)}</option>`).join("");
+    $("#filter-region").hidden = !regions.length;
+    ["#filter-sport", "#filter-rarity", "#filter-owned", "#filter-region"].forEach(s => $(s).addEventListener("change", renderCollection));
+    $("#filter-search").addEventListener("input", renderCollection);
+    $("#collection-more").onclick = () => { shown += PAGE; renderCollection(true); };
 
     document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
       document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("active", x === b));

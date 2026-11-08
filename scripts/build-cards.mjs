@@ -1,0 +1,203 @@
+/*
+ * Génère js/cards.js (les cartes du jeu) à partir de données ouvertes :
+ *  - Wikidata (CC0) : stades en France, capacité, ouverture, ville, région, sport, club, photo, notoriété
+ *  - OpenStreetMap (ODbL) : capacité quand Wikidata ne l'a pas (via le tag wikidata=*)
+ *  - Wikimedia Commons : URL, auteur et licence des photos
+ *
+ * Usage : node scripts/build-cards.mjs [nombre_de_cartes=1000]
+ * Lancé automatiquement par .github/workflows/build-cards.yml
+ */
+import { writeFileSync, mkdirSync } from "node:fs";
+
+const TARGET = Number(process.argv[2] || 1000);
+const UA = "TribunesTCG/0.1 (https://github.com/AugRock/TCG; jeu de cartes open source)";
+const COUNTRY = "Q142"; // France
+const STADIUM = "Q483110";
+const report = [];
+const log = (...a) => { const l = a.join(" "); console.log(l); report.push(l); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function http(url, opts = {}, tries = 5) {
+  for (let i = 1; i <= tries; i++) {
+    try {
+      const r = await fetch(url, { ...opts, headers: { "User-Agent": UA, "Accept": "application/json", ...(opts.headers || {}) } });
+      if (r.ok) return r.json();
+      const body = (await r.text()).slice(0, 200);
+      if (i === tries || ![429, 500, 502, 503, 504].includes(r.status)) throw new Error(`HTTP ${r.status} ${body}`);
+    } catch (e) { if (i === tries) throw e; }
+    await sleep(2000 * 2 ** i);
+  }
+}
+
+const sparql = async q => (await http("https://query.wikidata.org/sparql", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/sparql-results+json" },
+  body: new URLSearchParams({ query: q }),
+})).results.bindings;
+const qid = uri => uri.split("/").pop();
+const val = (b, k) => b[k] && b[k].value;
+
+// ---------- 1. Stades en France (Wikidata) ----------
+const base = await sparql(`
+SELECT ?s ?sLabel ?cap ?open ?inc ?img ?links WHERE {
+  ?s wdt:P17 wd:${COUNTRY} ; wdt:P31/wdt:P279* wd:${STADIUM} ; wikibase:sitelinks ?links .
+  FILTER NOT EXISTS { ?s wdt:P576 [] }
+  OPTIONAL { ?s wdt:P1083 ?cap }
+  OPTIONAL { ?s wdt:P1619 ?open }
+  OPTIONAL { ?s wdt:P571 ?inc }
+  OPTIONAL { ?s wdt:P18 ?img }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+}`);
+const items = new Map();
+const year = d => { const m = /^(-?\d{1,4})-/.exec(d || ""); return m ? Number(m[1]) : null; };
+for (const b of base) {
+  const id = qid(val(b, "s"));
+  const it = items.get(id) || { id, name: val(b, "sLabel"), caps: [], years: [], openYears: [], img: null, links: 0, sports: new Set(), clubs: new Set() };
+  if (val(b, "cap")) it.caps.push(Math.round(Number(val(b, "cap"))));
+  if (val(b, "open")) it.openYears.push(year(val(b, "open")));
+  if (val(b, "inc")) it.years.push(year(val(b, "inc")));
+  if (val(b, "img") && !it.img) it.img = decodeURIComponent(val(b, "img").split("/").pop());
+  it.links = Math.max(it.links, Number(val(b, "links") || 0));
+  items.set(id, it);
+}
+log(`Wikidata : ${items.size} stades en France (non démolis)`);
+
+// ---------- 2. Ville, région, sport, club (requêtes par lots) ----------
+async function batched(ids, build, onRow, size = 300) {
+  for (let i = 0; i < ids.length; i += size) {
+    const values = ids.slice(i, i + size).map(id => "wd:" + id).join(" ");
+    try { (await sparql(build(values))).forEach(onRow); }
+    catch (e) { log(`  ⚠️ lot ${i / size + 1} ignoré : ${e.message}`); }
+    await sleep(1000);
+  }
+}
+const ids = [...items.keys()];
+await batched(ids, v => `SELECT ?s ?cityLabel WHERE { VALUES ?s { ${v} } ?s wdt:P131 ?city .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". } }`,
+  b => { const it = items.get(qid(val(b, "s"))); if (it && !it.city) it.city = val(b, "cityLabel"); });
+await batched(ids, v => `SELECT ?s ?regionLabel WHERE { VALUES ?s { ${v} } ?s wdt:P131+ ?region . ?region wdt:P31 wd:Q36784 .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr". } }`,
+  b => { const it = items.get(qid(val(b, "s"))); if (it && !it.region) it.region = val(b, "regionLabel"); }, 150);
+await batched(ids, v => `SELECT ?s ?sportLabel ?clubLabel ?clubSportLabel WHERE { VALUES ?s { ${v} }
+  { ?s wdt:P641 ?sport } UNION { ?s wdt:P466 ?club . OPTIONAL { ?club wdt:P641 ?clubSport } }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". } }`,
+  b => {
+    const it = items.get(qid(val(b, "s"))); if (!it) return;
+    if (val(b, "sportLabel")) it.sports.add(val(b, "sportLabel").toLowerCase());
+    if (val(b, "clubSportLabel")) it.sports.add(val(b, "clubSportLabel").toLowerCase());
+    if (val(b, "clubLabel") && !/^Q\d+$/.test(val(b, "clubLabel"))) it.clubs.add(val(b, "clubLabel"));
+  });
+
+// ---------- 3. Capacité manquante : OpenStreetMap ----------
+let osmFilled = 0;
+try {
+  const osm = await http("https://overpass-api.de/api/interpreter", {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data: `[out:json][timeout:300];area["ISO3166-1"="FR"][admin_level=2]->.fr;nwr(area.fr)["leisure"="stadium"]["wikidata"];out tags;` }),
+  });
+  for (const el of osm.elements || []) {
+    const it = items.get(el.tags.wikidata); if (!it) continue;
+    const cap = parseInt(String(el.tags.capacity || "").replace(/[\s.,]/g, ""), 10);
+    if (!it.caps.length && cap > 0) { it.caps.push(cap); it.osm = true; osmFilled++; }
+    if (el.tags.sport) el.tags.sport.split(";").forEach(s => it.sports.add("osm:" + s.trim()));
+  }
+  log(`OpenStreetMap : ${(osm.elements || []).length} stades reliés à Wikidata, ${osmFilled} capacités ajoutées`);
+} catch (e) { log(`⚠️ OpenStreetMap indisponible : ${e.message}`); }
+
+// ---------- 4. Nettoyage et sélection ----------
+const SPORT_RULES = [
+  ["us", /football américain|osm:american_football/],
+  ["football", /^football$|football association|association football|soccer|osm:soccer/],
+  ["rugby", /rugby/],
+  ["tennis", /tennis/],
+  ["basket", /basket/],
+  ["handball", /handball/],
+  ["hockey", /hockey/],
+  ["athletisme", /athlétisme|athletics/],
+  ["cyclisme", /cyclisme|vélo|cycling/],
+  ["auto", /automobile|motocyclisme|sport mécanique|motorsport|motor/],
+  ["hippique", /hippique|équitation|horse|equestrian/],
+  ["baseball", /baseball/],
+];
+function sportOf(it) {
+  const all = [...it.sports].join("|");
+  for (const [k, re] of SPORT_RULES) if (re.test(all)) return k;
+  const n = (it.name || "").toLowerCase();
+  if (n.includes("hippodrome")) return "hippique";
+  if (n.includes("circuit")) return "auto";
+  if (n.includes("vélodrome")) return "cyclisme";
+  return "autre";
+}
+const all = [...items.values()];
+const eligible = all.filter(it => it.caps.length && it.name && !/^Q\d+$/.test(it.name));
+log(`Avec une capacité connue : ${eligible.length} (sans capacité, écartés : ${all.length - eligible.length})`);
+for (const it of eligible) {
+  it.capacity = Math.max(...it.caps);
+  const ys = [...it.openYears, ...it.years].filter(y => y && y > 1700 && y <= 2026);
+  it.year = it.openYears.find(y => y > 1700) || (ys.length ? Math.min(...ys) : null);
+  // Notoriété = nombre de Wikipédias + bonus de taille
+  it.score = it.links + Math.log10(it.capacity) * 2;
+}
+eligible.sort((a, b) => b.score - a.score);
+const chosen = eligible.slice(0, TARGET);
+log(`Sélection : ${chosen.length} cartes (objectif ${TARGET})`);
+
+// Rareté par rang de notoriété : 1 % légendaire, 4 % épique, 15 % rare, le reste commune
+const n = chosen.length;
+chosen.forEach((it, i) => {
+  const p = i / n;
+  it.rarity = p < 0.01 ? "legendaire" : p < 0.05 ? "epique" : p < 0.20 ? "rare" : "commune";
+  it.prestige = Math.max(1, Math.round(100 * (1 - i / n)));
+});
+
+// ---------- 5. Photos : URL + auteur + licence (Commons) ----------
+const withImg = chosen.filter(it => it.img);
+const strip = h => String(h || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+for (let i = 0; i < withImg.length; i += 50) {
+  const group = withImg.slice(i, i + 50);
+  try {
+    const url = "https://commons.wikimedia.org/w/api.php?" + new URLSearchParams({
+      action: "query", format: "json", formatversion: "2", prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "640",
+      titles: group.map(it => "File:" + it.img).join("|"),
+    });
+    const q = (await http(url)).query || {};
+    const norm = Object.fromEntries((q.normalized || []).map(x => [x.to, x.from]));
+    const byFile = {};
+    for (const p of q.pages || []) {
+      const ii = p.imageinfo && p.imageinfo[0]; if (!ii) continue;
+      const md = ii.extmetadata || {};
+      byFile[(norm[p.title] || p.title).replace(/^File:/, "").replace(/_/g, " ")] = {
+        url: ii.thumburl || ii.url, page: ii.descriptionurl,
+        artist: strip(md.Artist && md.Artist.value).slice(0, 120) || "Auteur inconnu",
+        license: strip(md.LicenseShortName && md.LicenseShortName.value) || "Licence libre",
+      };
+    }
+    group.forEach(it => { it.photo = byFile[it.img.replace(/_/g, " ")] || null; });
+  } catch (e) { log(`  ⚠️ photos lot ${i / 50 + 1} : ${e.message}`); }
+  await sleep(1000);
+}
+const photos = chosen.filter(it => it.photo).length;
+log(`Photos : ${photos} / ${chosen.length}`);
+
+// ---------- 6. Écriture ----------
+const cards = chosen.map(it => ({
+  id: it.id.toLowerCase(), name: it.name, city: it.city || "France", region: it.region || null,
+  flag: "🇫🇷", sport: sportOf(it), year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
+  club: [...it.clubs].slice(0, 2).join(", ") || undefined,
+  img: it.photo || undefined, wikidata: it.id,
+}));
+const count = k => Object.entries(cards.reduce((m, c) => ((m[c[k] || "?"] = (m[c[k] || "?"] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1]).map(([a, b]) => `${a} ${b}`).join(", ");
+log(`Raretés : ${count("rarity")}`);
+log(`Sports : ${count("sport")}`);
+log(`Régions : ${count("region")}`);
+log(`Sans année : ${cards.filter(c => !c.year).length} · Capacité via OSM : ${chosen.filter(c => c.osm).length}`);
+log(`Top 15 : ${cards.slice(0, 15).map(c => `${c.name} (${c.capacity})`).join(" · ")}`);
+
+const header = `/* FICHIER GÉNÉRÉ par scripts/build-cards.mjs — ne pas modifier à la main.
+ * Données : Wikidata (CC0), © contributeurs OpenStreetMap (ODbL), photos Wikimedia Commons (auteurs et licences indiqués).
+ * Généré le ${new Date().toISOString().slice(0, 10)} · ${cards.length} cartes */\n`;
+writeFileSync("js/cards.js", header +
+  `THEME.tagline = "Collectionne les ${cards.length} stades de France";\nTHEME.cards = ${JSON.stringify(cards, null, 0).replace(/\},\{/g, "},\n{")};\n`);
+mkdirSync("data", { recursive: true });
+writeFileSync("data/build-report.txt", report.join("\n") + "\n");
+console.log("OK → js/cards.js");
