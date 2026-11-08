@@ -98,12 +98,12 @@ nwr(area.fr)["capacity"]["leisure"~"^(stadium|sports_centre|sports_hall|track|ic
 let osm = null;
 for (const ep of OVERPASS) {
   try {
-    const res = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }) }, 2);
+    const res = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }) }, 4);
     const nb = (res.elements || []).length;
     log(`OpenStreetMap (${new URL(ep).host}) : ${nb} lieux sportifs avec capacité${res.remark ? " — " + res.remark.slice(0, 200) : ""}`);
     if (nb > 0) { osm = res; break; }
   }
-  catch (e) { log(`⚠️ Overpass ${new URL(ep).host} : ${e.message}`); }
+  catch (e) { log(`⚠️ Overpass ${new URL(ep).host} : ${e.message.slice(0, 120)}`); }
 }
 if (osm) {
   const LEISURE_RANK = { stadium: 0, sports_centre: 1, sports_hall: 2, ice_rink: 3, track: 4, pitch: 5 };
@@ -144,13 +144,15 @@ if (osm) {
 }
 
 // Lieux qui ne sont pas des lieux sportifs (classes Wikidata parasites)
-const NEVER = /refuge|cabane|gîte|serre|marché|cinéma|hôtel|gare|école|université|église|musée|camping|bibliothèque/i;
+const NEVER = /refuge|cabane|gîte/i; // capacité = nombre de lits
+const NOT_SPORT_STRONG = /serre|marché|cinéma|hôtel|gare|école|université|église|musée|camping|bibliothèque|port de plaisance|salle des fêtes/i;
 const NOT_SPORT = /théâtre|archéolog|concert|auditorium|château|parc d'attractions/i;
-const SPORT_CLASS = /stade|sport|aréna|arena|gymnase|patinoire|vélodrome|hippodrome|circuit|court|piscine|aquatique|terrain|salle multisport|palais des sports/i;
+const SPORT_CLASS = /stade|sport|aréna|arena|arène|gymnase|patinoire|vélodrome|hippodrome|circuit|court|tennis|piscine|aquatique|terrain|salle multisport|palais des sports/i;
 const removed = [];
 for (const [id, it] of items) {
   const cl = [...it.classes];
-  if (cl.some(c => NEVER.test(c)) || (cl.some(c => NOT_SPORT.test(c)) && !cl.some(c => SPORT_CLASS.test(c)))) { items.delete(id); removed.push(it.name); }
+  const sporty = cl.some(c => SPORT_CLASS.test(c)) || SPORT_CLASS.test(it.name || "");
+  if (cl.some(c => NEVER.test(c)) || (!sporty && cl.some(c => NOT_SPORT.test(c) || NOT_SPORT_STRONG.test(c)))) { items.delete(id); removed.push(`${it.name} [${cl.join(", ")}]`); }
 }
 log(`Écartés (pas des lieux sportifs) : ${removed.length} — ${removed.slice(0, 20).join(" · ")}`);
 

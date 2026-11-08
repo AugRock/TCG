@@ -8,7 +8,7 @@ on:
         default: "1000"
   push:
     paths:
-      - "scripts/build-cards.mjs"
+      - "scripts/*.mjs"
       - ".github/workflows/build-cards.yml"
 
 permissions:
@@ -23,6 +23,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Explorer le Recensement des équipements sportifs
+        continue-on-error: true
+        run: node scripts/probe-res.mjs
       - name: Générer js/cards.js
         run: node scripts/build-cards.mjs "${{ github.event.inputs.count || '1000' }}"
       - name: Résumé
@@ -31,7 +34,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add js/cards.js data/build-report.txt
+          git add js/cards.js data/build-report.txt data/probe-res.txt
           git diff --cached --quiet && echo "Aucun changement" && exit 0
           git commit -m "Cartes régénérées depuis Wikidata"
           git push
