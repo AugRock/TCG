@@ -12,14 +12,23 @@ La progression est sauvegardée dans le navigateur (localStorage).
 
 ## Fonctionnalités
 - **Boutique** : paquet gratuit toutes les 4 h, paquet standard (1 rare min.), paquet prestige (1 épique min.)
-- **4 raretés** : commune, rare, épique, légendaire (avec effet brillant)
+- **4 raretés** : commune, rare, épique, légendaire
+- **Photos réelles** des stades (Wikimedia Commons, licences libres, auteur crédité dans la fiche de la carte)
+- **Cartes full art** pour les épiques et légendaires : photo sur toute la carte, reflet holographique et inclinaison 3D qui suivent la souris
 - **Collection** : progression, filtres par sport/rareté, fiche détaillée, recyclage des doublons en pièces
 - **Duel** : ton deck = tes 5 meilleures cartes ; choisis Capacité / Ancienneté / Prestige, premier à 3 manches
 
 ## Structure
 - `js/data.js` — **le thème** (cartes, raretés, stats). Changer de thème = remplacer ce fichier.
+- `js/images.js` — chargement des photos depuis Wikipedia/Commons (avec cache)
 - `js/app.js` — le moteur (paquets, collection, duel, sauvegarde)
 - `index.html`, `styles.css` — l'interface
+
+## Photos
+Au lancement, le navigateur demande à Wikipedia l'image principale de chaque article (champ `wiki` dans `data.js`),
+puis récupère sur Commons l'URL, l'auteur et la licence. Seuls les fichiers libres hébergés sur Commons sont gardés.
+Si une photo ne convient pas (logo, plan…), ajoute `image: "Nom_du_fichier.jpg"` (nom de fichier Commons) à la carte.
+Sans connexion, les cartes s'affichent avec une icône à la place de la photo.
 
 ## Idées de thèmes sportifs
 | Thème | Pourquoi ça marche | Point d'attention |

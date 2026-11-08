@@ -46,21 +46,31 @@
   }
 
   // ---------- Rendu d'une carte ----------
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+
   function cardHTML(c, { count = 0, missing = false, isNew = false } = {}) {
     const sport = THEME.sports[c.sport] || THEME.sports.autre;
-    const cls = ["card", "r-" + c.rarity, missing && "missing", isNew && "new"].filter(Boolean).join(" ");
+    const img = !missing && CardImages.get(c.id);
+    const full = !missing && img && THEME.fullArtRarities.includes(c.rarity);
+    const cls = ["card", "r-" + c.rarity, missing && "missing", isNew && "new", full && "full", img && "has-img"].filter(Boolean).join(" ");
     if (missing) {
       return `<div class="${cls}" data-id="${c.id}"><div class="c-top"><span>${THEME.rarities[c.rarity].label}</span><span>${sport.icon}</span></div>
         <div class="c-art">❔</div><div class="c-name">???</div><div class="c-city">${sport.label}</div></div>`;
     }
+    const style = img ? ` style="--img:url(&quot;${esc(img.url)}&quot;)"` : "";
     const stats = THEME.stats.map(st => `<div data-stat="${st.key}"><b>${fmt(st.get(c))}</b>${st.label}</div>`).join("");
-    return `<div class="${cls}" data-id="${c.id}">
+    const art = full ? `<div class="c-spacer"></div>`
+      : `<div class="c-art">${img ? "" : sport.icon}<span class="flag">${c.flag}</span>${img ? `<span class="sport-chip">${sport.icon}</span>` : ""}</div>`;
+    return `<div class="${cls}" data-id="${c.id}"${style}>
       ${count > 1 ? `<span class="count">×${count}</span>` : ""}
-      <div class="c-top"><span>${THEME.rarities[c.rarity].label}</span><span>${sport.label}</span></div>
-      <div class="c-art">${sport.icon}<span class="flag">${c.flag}</span></div>
-      <div class="c-name">${c.name}</div>
-      <div class="c-city">${c.city} · ${c.year}</div>
-      <div class="c-stats">${stats}</div>
+      <div class="c-top"><span>${THEME.rarities[c.rarity].label}</span><span>${full ? sport.icon + " " + c.flag : sport.label}</span></div>
+      ${art}
+      <div class="c-info">
+        <div class="c-name">${c.name}</div>
+        <div class="c-city">${c.city} · ${c.year}</div>
+        <div class="c-stats">${stats}</div>
+      </div>
+      ${full ? `<div class="holo"></div>` : ""}
     </div>`;
   }
 
@@ -128,6 +138,7 @@
       <h3>${c.flag} ${c.name}</h3>
       <p class="muted">${sport.icon} ${sport.label} · ${c.city} · ouvert en ${c.year}<br>${fmt(c.capacity)} places</p>
       ${c.fact ? `<p>${c.fact}</p>` : ""}
+      ${(img => img ? `<p class="credit">Photo : <a href="${esc(img.page)}" target="_blank" rel="noopener">${esc(img.artist)}</a> · ${esc(img.license)} · Wikimedia Commons</p>` : "")(CardImages.get(c.id))}
       <p class="muted">Exemplaires : ${state.owned[c.id]}</p>
       <button class="primary" id="btn-close-detail">Fermer</button>`;
     $("#card-modal").hidden = false;
@@ -231,8 +242,21 @@
     $("#collection-grid").addEventListener("click", e => { const c = e.target.closest(".card"); if (c) showDetail(c.dataset.id); });
     $("#card-modal").addEventListener("click", e => { if (e.target.id === "card-modal") $("#card-modal").hidden = true; });
 
+    // Effet holographique : suit le pointeur sur les cartes full art
+    document.addEventListener("pointermove", e => {
+      const card = e.target.closest && e.target.closest(".card.full");
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      card.style.setProperty("--mx", (x * 100).toFixed(1) + "%");
+      card.style.setProperty("--my", (y * 100).toFixed(1) + "%");
+      card.style.setProperty("--rx", ((0.5 - y) * 14).toFixed(2) + "deg");
+      card.style.setProperty("--ry", ((x - 0.5) * 14).toFixed(2) + "deg");
+    });
+
     renderHeader(); renderCollection();
     setInterval(renderHeader, 1000);
+    CardImages.load(THEME.cards).then(() => renderCollection());
   }
   init();
 })();
