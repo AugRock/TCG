@@ -92,11 +92,17 @@ let osmFilled = 0;
 const osmLinked = new Map(); // Q-id -> {cap, sport}
 const osmOnly = [];          // lieux sans fiche Wikidata
 const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
-const osmQuery = `[out:json][timeout:240];area["ISO3166-1"="FR"][admin_level=2]->.fr;
+// Zone = relation OSM 2202 (France, outre-mer compris) → identifiant de zone 3600002202
+const osmQuery = `[out:json][timeout:240][maxsize:2000000000];area(id:3600002202)->.fr;
 nwr(area.fr)["capacity"]["leisure"~"^(stadium|sports_centre|sports_hall|track|ice_rink|pitch)$"];out tags;`;
 let osm = null;
 for (const ep of OVERPASS) {
-  try { osm = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }) }, 2); log(`OpenStreetMap (${new URL(ep).host}) : ${osm.elements.length} lieux sportifs avec capacité`); break; }
+  try {
+    const res = await http(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: osmQuery }) }, 2);
+    const nb = (res.elements || []).length;
+    log(`OpenStreetMap (${new URL(ep).host}) : ${nb} lieux sportifs avec capacité${res.remark ? " — " + res.remark.slice(0, 200) : ""}`);
+    if (nb > 0) { osm = res; break; }
+  }
   catch (e) { log(`⚠️ Overpass ${new URL(ep).host} : ${e.message}`); }
 }
 if (osm) {
@@ -138,12 +144,15 @@ if (osm) {
 }
 
 // Lieux qui ne sont pas des lieux sportifs (classes Wikidata parasites)
-const NOT_SPORT = /refuge|théâtre|cinéma|serre|marché|archéolog|concert|église|musée|château|hôtel|gare|école|université|parc d'attractions/i;
+const NEVER = /refuge|cabane|gîte|serre|marché|cinéma|hôtel|gare|école|université|église|musée|camping|bibliothèque/i;
+const NOT_SPORT = /théâtre|archéolog|concert|auditorium|château|parc d'attractions/i;
 const SPORT_CLASS = /stade|sport|aréna|arena|gymnase|patinoire|vélodrome|hippodrome|circuit|court|piscine|aquatique|terrain|salle multisport|palais des sports/i;
+const removed = [];
 for (const [id, it] of items) {
   const cl = [...it.classes];
-  if (cl.some(c => NOT_SPORT.test(c)) && !cl.some(c => SPORT_CLASS.test(c))) items.delete(id);
+  if (cl.some(c => NEVER.test(c)) || (cl.some(c => NOT_SPORT.test(c)) && !cl.some(c => SPORT_CLASS.test(c)))) { items.delete(id); removed.push(it.name); }
 }
+log(`Écartés (pas des lieux sportifs) : ${removed.length} — ${removed.slice(0, 20).join(" · ")}`);
 
 // ---------- 3b. Ville, région, sport, club ----------
 const ids = [...items.keys()].filter(id => /^Q\d+$/.test(id) && items.get(id).caps.length);
@@ -263,6 +272,8 @@ log(`Raretés : ${count("rarity")}`);
 log(`Sports : ${count("sport")}`);
 log(`Régions : ${count("region")}`);
 log(`Types de lieux : ${Object.entries(chosen.reduce((m, it) => { [...it.classes].slice(0, 1).forEach(k => (m[k] = (m[k] || 0) + 1)); return m; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([a, b]) => `${a} ${b}`).join(", ")}`);
+const odd = chosen.filter(it => [...it.classes].some(c => NOT_SPORT.test(c)));
+log(`À vérifier (classe culturelle + sportive) : ${odd.map(it => `${it.name} [${[...it.classes].join(", ")}]`).join(" · ")}`);
 log(`Sans année : ${cards.filter(c => !c.year).length} · Capacité via OSM : ${chosen.filter(c => c.osm).length} · Lieux uniquement OSM : ${chosen.filter(c => c.osmOnly).length}`);
 log(`Top 15 : ${cards.slice(0, 15).map(c => `${c.name} (${c.capacity})`).join(" · ")}`);
 
