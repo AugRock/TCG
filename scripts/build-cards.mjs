@@ -362,7 +362,12 @@ log(`Photos : ${photos} / ${chosen.length}`);
 
 // ---------- 6. Écriture ----------
 const nameCount = chosen.reduce((m, it) => ((m[it.name.toLowerCase()] = (m[it.name.toLowerCase()] || 0) + 1), m), {});
-for (const it of chosen) if (nameCount[it.name.toLowerCase()] > 1 && it.city) it.name = `${it.name} (${it.city})`;
+const firstSeen = new Set(); // le plus connu (premier dans le classement) garde son nom
+for (const it of chosen) {
+  const k = it.name.toLowerCase();
+  if (nameCount[k] > 1 && firstSeen.has(k) && it.city) it.name = `${it.name} (${it.city.replace(/ \d+e Arrondissement$/, "")})`;
+  firstSeen.add(k);
+}
 const cards = chosen.map(it => ({
   id: it.id.toLowerCase(), name: it.name.charAt(0).toUpperCase() + it.name.slice(1), city: it.city || "France", region: it.region || null,
   flag: "🇫🇷", sport: sportOf(it), year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
