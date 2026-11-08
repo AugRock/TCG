@@ -50,3 +50,7 @@ Ajoute `?demo=1` à l'adresse (ex. `https://augrock.github.io/TCG/?demo=1`), ou 
 - Paquets gratuits et illimités, minuteur désactivé
 - Forcer la rareté des cartes tirées, débloquer toute la collection, ajouter des pièces, réinitialiser
 - Progression séparée de la vraie partie ; `?demo=0` ou « Quitter le mode démo » pour en sortir
+
+## Publier une nouvelle version
+Les navigateurs gardent les fichiers en cache. À chaque mise à jour, augmenter le numéro `?v=` dans `index.html`
+(et dans le pied de page « Tribunes vX.Y ») pour que les joueurs reçoivent les nouveaux fichiers.
