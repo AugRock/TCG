@@ -130,3 +130,38 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
 .version { text-align: center; color: var(--muted); font-size: .75rem; padding: 0 0 24px; }
 input[type=search] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; min-width: 200px; }
 .more { text-align: center; margin-top: 16px; }
+
+/* ---------- Animation légendaire (walkout) ---------- */
+.walkout { position: fixed; inset: 0; z-index: 300; background: #000; color: #fff; overflow: hidden; cursor: pointer; user-select: none; transition: opacity .35s; }
+.walkout canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.walkout.wo-out { opacity: 0; }
+.wo-row { position: absolute; top: max(16px, env(safe-area-inset-top)); left: 0; right: 0; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 0 16px; }
+.wo-chip { background: rgba(0,0,0,.55); border: 1px solid rgba(245,158,11,.6); border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: .9rem; animation: wo-chip .4s ease-out; backdrop-filter: blur(4px); }
+.wo-mini { font-size: 1rem; }
+@keyframes wo-chip { from { transform: translateY(40px) scale(1.4); opacity: 0; } }
+.wo-big { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.wo-slam { text-align: center; animation: wo-slam .55s cubic-bezier(.2, 1.6, .4, 1); text-shadow: 0 4px 30px rgba(0,0,0,.9); }
+@keyframes wo-slam { from { transform: scale(3); opacity: 0; filter: blur(8px); } }
+.wo-flag, .wo-ico { display: block; font-size: clamp(4rem, 18vw, 8rem); line-height: 1.1; filter: drop-shadow(0 6px 24px rgba(245,158,11,.6)); }
+.wo-text { font-size: clamp(1.6rem, 7vw, 3rem); font-weight: 900; letter-spacing: .5px; text-transform: uppercase; }
+.wo-num { font-variant-numeric: tabular-nums; color: #fcd34d; }
+.wo-card { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; pointer-events: none; }
+.wo-final .wo-card { display: flex; }
+.wo-card .card { width: min(260px, 62vw); animation: wo-card 1s cubic-bezier(.2, 1.2, .3, 1); box-shadow: 0 0 60px rgba(245,158,11,.8); }
+@keyframes wo-card { from { transform: perspective(800px) rotateY(540deg) scale(.2); opacity: 0; } 60% { opacity: 1; } }
+.wo-name { font-size: clamp(1.4rem, 6vw, 2.4rem); font-weight: 900; text-transform: uppercase; color: #fcd34d; text-shadow: 0 0 24px rgba(245,158,11,.9); animation: wo-slam .6s .5s both; text-align: center; padding: 0 16px; }
+.wo-hint { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: rgba(255,255,255,.55); font-size: .85rem; }
+
+/* ---------- Vue 3D du stade ---------- */
+.s3d { position: fixed; inset: 0; z-index: 250; background: #060a16; opacity: 0; transition: opacity .45s .25s; }
+.s3d.s3d-in { opacity: 1; }
+.s3d canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.s3d-flash { position: absolute; inset: 0; background: #fff7e0; pointer-events: none; opacity: 0; }
+.s3d.s3d-in .s3d-flash { animation: s3d-flash 1.2s ease-out; }
+@keyframes s3d-flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+.s3d-close, .s3d-info { position: absolute; top: max(14px, env(safe-area-inset-top)); background: rgba(0,0,0,.55); color: #fff; border: 1px solid rgba(255,255,255,.25); backdrop-filter: blur(6px); }
+.s3d-close { left: 14px; }
+.s3d-info { right: 14px; }
+.s3d-hint { position: absolute; bottom: max(16px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: rgba(255,255,255,.6); font-size: .8rem; pointer-events: none; }
+.s3d-zoom { position: fixed !important; z-index: 260; margin: 0; transition: transform .8s cubic-bezier(.6, 0, .3, 1), opacity .5s .45s; transform-origin: center; pointer-events: none; }
+.card.r-legendaire .c-top span:first-child::after { content: " · 3D"; color: #fcd34d; }

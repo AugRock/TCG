@@ -59,9 +59,17 @@ Rareté et prestige sont calculés à partir de la notoriété (nombre de Wikip�
 Le script tourne sur GitHub Actions (onglet **Actions → Générer les cartes → Run workflow**, nombre de cartes réglable)
 et enregistre le résultat. Rapport du dernier passage : `data/build-report.txt`.
 
+## Cartes légendaires
+- **Ouverture de paquet** : si le paquet contient une légendaire, animation plein écran (tunnel des joueurs, entrée
+  dans le stade, puis région → sport → ville → capacité → carte). Toucher l'écran pour passer. Code : `js/walkout.js`.
+- **Vue 3D** : toucher une légendaire dans la collection ouvre une vue 3D dans un stade généré (Three.js, `js/stadium3d.js`) :
+  taille des tribunes selon la capacité, terrain selon le sport, nom en tifo, infos sur l'écran géant et les panneaux LED.
+  Ce n'est pas la maquette exacte du vrai stade. Three.js (MIT) est inclus dans `js/vendor/`.
+
 ## Mode démo (pour tester)
 Ajoute `?demo=1` à l'adresse (ex. `https://augrock.github.io/TCG/?demo=1`), ou tape 5 fois rapidement sur le logo.
 - Paquets gratuits et illimités, minuteur désactivé
+- Boutons « Tester l'animation légendaire » et « Tester la vue 3D »
 - Forcer la rareté des cartes tirées, débloquer toute la collection, ajouter des pièces, réinitialiser
 - Progression séparée de la vraie partie ; `?demo=0` ou « Quitter le mode démo » pour en sortir
 

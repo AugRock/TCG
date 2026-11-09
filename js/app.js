@@ -99,7 +99,7 @@
     } else $("#free-timer").textContent = "Disponible !";
   }
 
-  function openPack(type) {
+  async function openPack(type) {
     const p = PACKS[type];
     if (!DEMO && state.coins < p.cost) return;
     if (type === "free") state.lastFree = Date.now();
@@ -112,10 +112,29 @@
     state.stats.packs++;
     save(); renderHeader();
 
+    // Légendaire dans le paquet : animation d'entrée dans le stade avant d'afficher les cartes
+    const legend = cards.find(c => c.rarity === "legendaire");
+    if (legend) await playWalkout(legend);
+
     $("#pack-cards").innerHTML = cards.map((c, i) =>
       `<div class="flip"><div class="back">🏟️</div>${cardHTML(c, { isNew: fresh[i] })}</div>`).join("");
     $("#pack-cards").querySelectorAll(".flip").forEach(f => f.addEventListener("click", () => f.classList.add("revealed")));
     $("#pack-modal").hidden = false;
+  }
+
+  // ---------- Animations légendaires ----------
+  function playWalkout(c) {
+    return Walkout.play(c, { cardHtml: cardHTML(c), sport: THEME.sports[c.sport] || THEME.sports.autre });
+  }
+  let stadiumModule = null;
+  async function openStadium3D(c, fromEl) {
+    try {
+      stadiumModule = stadiumModule || (await import("./stadium3d.js?v=1.3"));
+      stadiumModule.openStadium(c, { sport: { key: c.sport, ...(THEME.sports[c.sport] || THEME.sports.autre) }, fromEl, onDetails: () => showDetail(c.id) });
+    } catch (e) {
+      console.warn("Vue 3D indisponible :", e);
+      showDetail(c.id);
+    }
   }
 
   // ---------- Collection ----------
@@ -254,6 +273,8 @@
           <button id="demo-coins">+ 🪙 1 000</button>
           <button id="demo-reset">Réinitialiser la démo</button>
           <button id="demo-photos">Recharger les photos</button>
+          <button id="demo-walkout">Tester l'animation légendaire</button>
+          <button id="demo-3d">Tester la vue 3D</button>
           <button id="demo-exit">Quitter le mode démo</button>
         </div>
       </div>`);
@@ -262,6 +283,9 @@
     $("#demo-coins").onclick = () => { state.coins += 1000; save(); renderHeader(); };
     $("#demo-reset").onclick = () => { state = defaultState(); save(); renderHeader(); renderCollection(); toast("Démo réinitialisée"); };
     $("#demo-photos").onclick = () => { try { localStorage.removeItem("tcg-images-v1"); } catch {} location.reload(); };
+    const randomLegend = () => { const l = THEME.cards.filter(c => c.rarity === "legendaire"); return l[Math.floor(Math.random() * l.length)]; };
+    $("#demo-walkout").onclick = () => playWalkout(randomLegend());
+    $("#demo-3d").onclick = () => openStadium3D(randomLegend());
     $("#demo-exit").onclick = () => { try { localStorage.removeItem("tcg-demo"); } catch {} location.href = location.pathname; };
   }
 
@@ -299,7 +323,12 @@
     $("#btn-close-pack").onclick = () => { $("#pack-modal").hidden = true; renderCollection(); };
     $("#btn-sell-dupes").onclick = sellDupes;
     $("#btn-start-duel").onclick = startDuel;
-    $("#collection-grid").addEventListener("click", e => { const c = e.target.closest(".card"); if (c) showDetail(c.dataset.id); });
+    $("#collection-grid").addEventListener("click", e => {
+      const el = e.target.closest(".card"); if (!el) return;
+      const c = byId[el.dataset.id];
+      if (c && c.rarity === "legendaire" && state.owned[c.id]) openStadium3D(c, el);
+      else showDetail(el.dataset.id);
+    });
     $("#card-modal").addEventListener("click", e => { if (e.target.id === "card-modal") $("#card-modal").hidden = true; });
 
     // Effet holographique : suit le pointeur sur les cartes full art
