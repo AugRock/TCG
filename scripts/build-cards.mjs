@@ -323,13 +323,33 @@ eligible.sort((a, b) => b.score - a.score);
 const chosen = eligible.slice(0, TARGET);
 log(`Sélection : ${chosen.length} cartes (objectif ${TARGET})`);
 
-// Rareté par rang de notoriété : 1 % légendaire, 4 % épique, 15 % rare, le reste commune
+// ---------- Rareté : répartie entre les sports ----------
+// - chaque sport avec au moins MIN_SPORT lieux a sa légendaire (le plus prestigieux de sa discipline),
+//   au moins 2 épiques et 3 rares ; le football garde ses FOOT_LEGENDS plus grands stades en légendaire ;
+// - le reste suit la notoriété globale (≈ 4 % épiques, 15 % rares au total).
+const MIN_SPORT = 8, FOOT_LEGENDS = 6;
+chosen.forEach(it => (it.sportKey = sportOf(it)));
 const n = chosen.length;
-chosen.forEach((it, i) => {
-  const p = i / n;
-  it.rarity = p < 0.01 ? "legendaire" : p < 0.05 ? "epique" : p < 0.20 ? "rare" : "commune";
-  it.prestige = Math.max(1, Math.round(100 * (1 - i / n)));
+const bySport = {};
+chosen.forEach((it, i) => { it.globalRank = i; (bySport[it.sportKey] = bySport[it.sportKey] || []).push(it); });
+chosen.forEach(it => (it.rarity = "commune"));
+const promote = (list, rarity, k) => list.filter(it => it.rarity === "commune").slice(0, k).forEach(it => (it.rarity = rarity));
+for (const [sp, list] of Object.entries(bySport)) {
+  if (sp === "autre" || list.length < MIN_SPORT) continue;
+  promote(list, "legendaire", sp === "football" ? FOOT_LEGENDS : 1);
+}
+for (const [sp, list] of Object.entries(bySport)) if (sp !== "autre" && list.length >= MIN_SPORT) promote(list, "epique", 2);
+promote(chosen, "epique", Math.round(n * 0.04) - chosen.filter(it => it.rarity === "epique").length);
+for (const [sp, list] of Object.entries(bySport)) if (sp !== "autre" && list.length >= MIN_SPORT) promote(list, "rare", 3);
+promote(chosen, "rare", Math.round(n * 0.15) - chosen.filter(it => it.rarity === "rare").length);
+// Prestige : le meilleur des deux classements (global, ou dans sa discipline avec un léger malus)
+chosen.forEach(it => {
+  const list = bySport[it.sportKey], inSport = list.indexOf(it);
+  const g = 1 - it.globalRank / n, sRank = list.length > 1 ? 1 - inSport / list.length : 1;
+  it.prestige = Math.max(1, Math.round(100 * Math.max(g, sRank * 0.95)));
 });
+log(`Légendaires : ${chosen.filter(it => it.rarity === "legendaire").map(it => `${it.name} [${it.sportKey}]`).join(" · ")}`);
+
 
 // ---------- 5. Photos : URL + auteur + licence (Commons) ----------
 const withImg = chosen.filter(it => it.img);
@@ -371,7 +391,7 @@ for (const it of chosen) {
 const cards = chosen.map(it => ({
   id: it.id.toLowerCase(), name: it.name.charAt(0).toUpperCase() + it.name.slice(1),
   city: (it.city || "France").replace(/ (\d+(?:e|er)) Arrondissement$/i, " $1"), region: it.region || null,
-  flag: "🇫🇷", sport: sportOf(it), year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
+  flag: "🇫🇷", sport: it.sportKey, year: it.year, capacity: it.capacity, prestige: it.prestige, rarity: it.rarity,
   club: [...it.clubs].slice(0, 2).join(", ") || undefined,
   img: it.photo || undefined, wikidata: /^Q\d+$/.test(it.id) ? it.id : undefined, res: it.res ? it.res.id : undefined,
   osm: it.osmOnly ? it.id.replace(/^osm(\w)(\d+)$/, (_, t, n) => `${{ n: "node", w: "way", r: "relation" }[t]}/${n}`) : undefined,

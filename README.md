@@ -53,8 +53,9 @@ Sans connexion, les cartes s'affichent avec une icône à la place de la photo.
 - **OpenStreetMap** (ODbL, attribution obligatoire) : optionnel (`USE_OSM=1`), serveurs publics souvent saturés
 - **Wikimedia Commons** : URL, auteur et licence des photos
 
-Rareté et prestige sont calculés à partir de la notoriété (nombre de Wikipédias qui parlent du stade) :
-1 % légendaire, 4 % épique, 15 % rare, 80 % commune.
+Rareté et prestige sont calculés à partir de la notoriété (nombre de Wikipédias qui parlent du lieu), répartis par sport :
+chaque sport d'au moins 8 lieux a sa légendaire (le football en a 6), au moins 2 épiques et 3 rares ;
+au total ≈ 4 % d'épiques et 15 % de rares. Le prestige est le meilleur entre le rang global et le rang dans sa discipline.
 
 Le script tourne sur GitHub Actions (onglet **Actions → Générer les cartes → Run workflow**, nombre de cartes réglable)
 et enregistre le résultat. Rapport du dernier passage : `data/build-report.txt`.
@@ -62,8 +63,10 @@ et enregistre le résultat. Rapport du dernier passage : `data/build-report.txt`
 ## Cartes légendaires
 - **Ouverture de paquet** : si le paquet contient une légendaire, animation plein écran (tunnel des joueurs, entrée
   dans le stade, puis région → sport → ville → capacité → carte). Toucher l'écran pour passer. Code : `js/walkout.js`.
-- **Vue 3D** : toucher une légendaire dans la collection ouvre une vue 3D dans un stade généré (Three.js, `js/stadium3d.js`) :
-  taille des tribunes selon la capacité, terrain selon le sport, nom en tifo, infos sur l'écran géant et les panneaux LED.
+- **Vue 3D** : toucher une légendaire dans la collection ouvre une vue 3D du lieu, générée avec Three.js (`js/stadium3d.js`).
+  Six décors selon le sport : stade (foot, rugby, athlé, tennis), salle couverte (basket, hand, hockey, natation, multisport),
+  arènes, hippodrome, circuit, vélodrome. Taille des tribunes selon la capacité ; infos sur écran géant / cube suspendu,
+  panneaux LED, tifo ou fronton de tribune.
   Ce n'est pas la maquette exacte du vrai stade. Three.js (MIT) est inclus dans `js/vendor/`.
 
 ## Mode démo (pour tester)

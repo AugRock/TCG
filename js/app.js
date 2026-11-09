@@ -129,7 +129,7 @@
   let stadiumModule = null;
   async function openStadium3D(c, fromEl) {
     try {
-      stadiumModule = stadiumModule || (await import("./stadium3d.js?v=1.3"));
+      stadiumModule = stadiumModule || (await import("./stadium3d.js?v=1.4"));
       stadiumModule.openStadium(c, { sport: { key: c.sport, ...(THEME.sports[c.sport] || THEME.sports.autre) }, fromEl, onDetails: () => showDetail(c.id) });
     } catch (e) {
       console.warn("Vue 3D indisponible :", e);
